@@ -16,7 +16,8 @@ MathWorks社が提供するMATLABを用いて, データ処理からグラフ表
 MATLABをインストールしてください.
 
   - Campus-Wide License を導入している大学では, **大学のメールアドレス**で MATLAB を入手できます.
-   詳細は[こちら](https://jp.mathworks.com/academia/tah-support-program/eligibility.html) [東京電機大学用](https://www.mrcl.dendai.ac.jp/mrcl/it-service/software/matlab/)
+
+詳細は[こちら](https://jp.mathworks.com/academia/tah-support-program/eligibility.html) / 東京電機大学の学生は[こちら](https://www.mrcl.dendai.ac.jp/mrcl/it-service/software/matlab/)
 
 ### 2. 使用する MATLAB Toolbox
 下記の Toolbox のインストールが必要です.
