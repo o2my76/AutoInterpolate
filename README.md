@@ -25,4 +25,6 @@ MATLABをインストールしてください.
   - Signal Processing Toolbox
   - Curve Fitting Toolbox
 
-「ホーム > アドオン」から検索し、インストールしてください.
+MATLAB インストール時にまとめて追加できます.
+
+MATLAB をインストール済みの場合は「ホーム > アドオン」から検索し、インストールしてください.
