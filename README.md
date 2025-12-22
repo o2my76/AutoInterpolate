@@ -9,7 +9,7 @@ MathWorks社が提供するMATLABを用いて, データ処理からグラフ表
 本ページでは, 私が修士課程で行った研究内容とともに, 基本知識について解説します.
 
 ### 学部生時代の卒業研究
-"Bachelor's Research.pdf"というファイル名で保存しているので, 詳細は[こちら](https://github.com/user-attachments/files/24292302/25KMH28.pdf)
+"Bachelor's Research.pdf"というファイル名で保存しているので, 詳細は[こちら](https://github.com/tdu-my/Automatic-Edge-Region-Processing-for-Spectral-Interpolation/blob/main/Bachelor's%20Research.pdf)
 ()を参照してください.
 
 ## プログラムに必要なもの
