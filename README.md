@@ -61,7 +61,7 @@ HITRAN on the Web のリンクは[こちら](https://hitran.iao.ru/)
 選択後, 「Volume share」からガス濃度を入力し, 保存アイコンを選択して値を保存します. (1 → 100%)
 <img width="1944" height="364" alt="image" src="https://github.com/user-attachments/assets/8d6ea561-fb9b-400b-b038-835b83022a51" />
 <br>
-最後に, 「Save」を選択して保存完了です. (別の混合ガスを生成する場合は同じ作業を繰り返してください.)
+最後に, 「Save」を選択して保存完了です. (別の同位体を選択する場合は同じ作業を繰り返してください.)
 <img width="1828" height="992" alt="image" src="https://github.com/user-attachments/assets/844bd6a6-d685-4df1-8652-5f331ea20dcb" />
 
 ここまででは, 混合ガスの比率を設定しただけなので, まだシアン化水素ガスとしての保存ができていません. <br>
