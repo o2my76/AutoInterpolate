@@ -32,6 +32,12 @@ t = (0:N-1) / Fs;                            % 時間軸の生成
 disp('Measurement time [ms]'); disp(N/Fs*1e3);    % 測定時間の表示
 CH2_Freq = Fs / (N * 1.5);                   % 三角波周波数 (データ取得時間範囲から左右それぞれ +30° 空けているので1.5を掛ける)
 
+%% HITRANデータの読み込み
+% HITRANデータファイルの指定
+HITRANdata = readtable("C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\SpectrMixt_H13C14N");
+X_Fraction = HITRANdata{:, 1};                              % HITRANのx軸の取得 (波数 [cm^-1])
+HITRAN_X = X_Fraction * 29979245800;                        % 波数から光周波数に変換 [Hz]
+HITRAN_Y = HITRANdata{:, 2};                                % HITRANのy軸の取得 (透過率)
 
 %% 波長計で保存したtxtデータの読み込み、中心波長・光補間量の推定値の自動測定
 % 読み込むテキストファイルの指定
@@ -48,7 +54,7 @@ Acquisition_TimerRange = Tdata_Time(TimeRange);                                 
 Acquisition_wavelength = wavelength(TimeRange).';                                      % 設定した範囲の波長軸の取得
 
 % 設定した範囲における波長計で取得したデータの表示
-figure(0)
+figure
 plot(Acquisition_TimerRange, Acquisition_wavelength, 'LineWidth', 1);
 % title('Acquisition of wavelength Meter')
 xlabel('Time [s]')                                                                 % x軸ラベル
@@ -98,7 +104,7 @@ if Judge == 1
     if ~exist(NewFolder, 'dir')
         mkdir(NewFolder);
     end
-     % emf用のサブフォルダを作成
+    % emf用のサブフォルダを作成
     EmfFolder = fullfile(NewFolder,[Name, '_emf']);
     if ~exist(EmfFolder, 'dir')
         mkdir(EmfFolder);
@@ -146,7 +152,7 @@ data = fread(fileID, 'uint16');                                                 
 fclose(fileID);                                                                    % ファイルを閉じる
 Y1 = dScaleFactor * (double(data) - dSampleZeroValue);                             % サンプル値を電圧値に変換
 
-figure(1)
+figure
 plot(t,Y1)                                                                         % 参照光の時間軸波形の表示
 % title('Referenced Interferogram')
 xlabel('Time [μs]')                                                                % x軸ラベル
@@ -175,7 +181,7 @@ data = fread(fileID, 'uint16');                                                 
 fclose(fileID);
 Y2 = dScaleFactor * (double(data) - dSampleZeroValue);                             % サンプル値を電圧値に変換
 
-figure(2)
+figure
 plot(t,Y2)                                                                         % 透過光の時間軸波形の表示
 % title('Transmitted Interferogram')
 xlabel('Time [μs]')                                                                % x軸ラベル
@@ -195,14 +201,6 @@ if Judge == 1
 end
 
 
-%% HITRANデータの読み込み
-% HITRANデータファイルの指定
-HITRANdata = readtable("C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\SpectrMixt_H13C14N");
-X_Fraction = HITRANdata{:, 1};                              % HITRANのx軸の取得 (波数 [cm^-1])
-HITRAN_X = X_Fraction * 29979245800;                        % 波数から光周波数に変換 [Hz]
-HITRAN_Y = HITRANdata{:, 2};                                % HITRANのy軸の取得 (透過率)
-
-
 %% フーリエ変換 (時間波形から周波数スペクトルに変換)
 % フーリエ変換
 CombA = fft(Y1);                                                                   % 参照光のフーリエ変換
@@ -213,7 +211,7 @@ f2 = (0:length(Y2)-1)*Fs/length(Y2);                                            
 
 %% スムージング処理前のRFコムスペクトルの表示
 % 2.1 スムージング処理前のRFコムスペクトルの表示 (参照光・透過光)
-figure(3);                                        
+figure                                     
 plot(f2, abs(CombB), 'LineWidth', 1);                         % スムージング処理前のRF透過光スペクトルの表示
 
 hold on
@@ -256,7 +254,7 @@ toc;
 
 %% スムージング後のRFコムスペクトルの表示
 % 2.2 スムージング処理後のRFコムスペクトルの表示 (参照光・透過光)
-figure(4)                                     
+figure                         
 plot(f2, SmthCombB, 'LineWidth', 1);                          % スムージング処理後のRF透過光スペクトルの表示
 
 hold on
@@ -290,7 +288,7 @@ end
 SmthAbsorption = SmthCombB ./ SmthCombA;                      % 透過率の算出
 f3 = (0:length(SmthAbsorption)-1)*Fs/length(SmthAbsorption);  % X軸の生成
 
-figure(5)
+figure
 plot(f3, SmthAbsorption, 'LineWidth', 1);
 xlabel('Frequency [MHz]')                                     % x軸ラベル
 ylabel('Transmittance [a.u.]')                                % y軸ラベル
@@ -346,7 +344,7 @@ RFmaskMax = AOM + RFRep * 17 + RFDiff / 2;
 disp('RF Max [MHz]'); disp(RFmaskMax/1e6);                    % 吸収線表示箇所の最大値を表示
 
 % 3.1.1 マスク後のRF吸収線スペクトルの表示及び吸収線ピークの検出、表示
-figure(6)
+figure
 RFmask = (RFmaskMin <= f3) & (f3 <= RFmaskMax);               % 吸収線表示範囲をmaskに設定
 f3 = f3(RFmask);                                              % RF吸収線のx軸のうち、設定した「mask」の範囲のみを保存
 SmthAbsorption= SmthAbsorption(RFmask);                       % RF吸収線のy軸のうち、設定した「mask」の範囲のみを保存
@@ -513,7 +511,7 @@ toc;
 
 %% 光領域変換後のEOコムスペクトルの表示 (切り取り前)
 % 7.1 切取前の光領域変換後のEOコムスペクトルの表示 (推定値)
-figure(7)
+figure
 for i = 1:n
 plot(OPX2_Est{i}, RFY2{i}, 'g', 'LineWidth', 1);
 hold on
@@ -542,7 +540,7 @@ if Judge == 1
 end
 
 % 7.2 切取前の光領域変換後のEOコムスペクトルの表示 (平均値)
-figure(8)
+figure
 for i = 1:n
 plot(OPX2_Ave{i}, RFY2{i}, 'g', 'LineWidth', 1);
 hold on
@@ -611,7 +609,7 @@ Peak_HITRAN_Y = Peak_HITRAN_Y(idx);    % 除去後のHITRANのy軸に上書き
 %% 切り取り後のEOコムスペクトル・吸収線スペクトルの表示・ピーク位置の検出
 %%% 推定値 (波長計で測定した光補間量)
 % 8.1.1 切取後の光領域変換後のEOコムスペクトルの表示 (推定値)
-figure(9)
+figure
 % Cell中のベクトルをすべて縦ベクトルに変換
 AX2_col = cellfun(@(v) v(:), cutOPX2_Est, 'UniformOutput', false);
 AY2_col = cellfun(@(v) v(:), cutOPY2_Est, 'UniformOutput', false);
@@ -647,7 +645,7 @@ end
 
 % 8.1.2 吸収線スペクトルの取得及び表示、HITRANとの比較 (推定値)
 Absorption_Est = AY2 ./ AY1;                                  % 透過率の算出
-figure(10)
+figure
 plot(AX1, Absorption_Est, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
 hold on
 plot(HITRAN_X, HITRAN_Y, '--g', 'LineWidth', 1);              % HITRANの表示 (破線)
@@ -700,7 +698,7 @@ end
 
 %% 平均値 (隣り合ったRF吸収線のピーク間隔の平均値)
 % 8.2.1 切取後の光領域変換後のEOコムスペクトルの表示 (平均値)
-figure(11)
+figure
 % Cell中のベクトルをすべて縦ベクトルに変換
 BX2_col = cellfun(@(v) v(:), cutOPX2_Ave, 'UniformOutput', false);
 BY2_col = cellfun(@(v) v(:), cutOPY2_Ave, 'UniformOutput', false);
@@ -736,7 +734,7 @@ end
 
 % 8.2.2 吸収線スペクトルの取得及び表示、HITRANとの比較 (平均値)
 Absorption_Ave = BY2 ./ BY1;                                  % 透過率の算出
-figure(12)
+figure
 plot(BX1, Absorption_Ave, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
 hold on
 plot(HITRAN_X, HITRAN_Y, '--g', 'LineWidth', 1);              % HITRANの表示 (破線)
@@ -828,7 +826,7 @@ Basemask_Ave = true(size(BX1));
 %% 切り取る吸収線範囲を破線で表示
 %%% 推定値 (波長計で測定した光補間量)
 % 9.1 切り取る吸収線範囲を破線で表示 (推定値)
-figure(13)
+figure
 plot(AX1, Absorption_Est, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
 hold on
 
@@ -864,7 +862,7 @@ end
 
 %% 平均値 (隣り合ったRF吸収線のピーク間隔の平均値)
 % 9.2 切り取る吸収線範囲を破線で表示 (平均値)
-figure(14)
+figure
 plot(BX1, Absorption_Ave, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
 hold on
 
@@ -971,7 +969,7 @@ end
 %% ベースラインと近似曲線の表示
 %%% 推定値 (波長計で測定した光補間量)
 % 10.1 結果の表示 (推定値)
-figure(15)
+figure
 plot(Baseline_AX, Baseline_AY, '.r', 'LineWidth', 1);          % 測定結果の表示 (赤点線)
 hold on
 plot(AX1, Fit_AX1, 'g', 'LineWidth', 1.5);                      % 正規化ありの近似曲線 (緑線)
@@ -1000,7 +998,7 @@ end
 
 %% 平均値 (隣り合ったRF吸収線のピーク間隔の平均値)
 % 10.2 結果の表示 (平均値)
-figure(16)
+figure
 plot(Baseline_BX, Baseline_BY, '.r', 'LineWidth', 1);          % 測定結果の表示 (赤点線)
 hold on
 plot(BX1, Fit_BX1, 'g', 'LineWidth', 1.5);                      % 正規化ありの近似曲線 (緑線)
@@ -1037,7 +1035,7 @@ Div_Absorption_Ave = Absorption_Ave ./ Fit_BX1;
 
 %% 推定値 (波長計で測定した光補間量)
 % 11.1.1 除算後の吸収線スペクトル (推定値)
-figure(17)
+figure
 plot(AX1, Div_Absorption_Est, 'r', 'LineWidth', 1);
 hold on
 plot(HITRAN_X, HITRAN_Y, '--g', 'LineWidth', 1);              % HITRANの表示 (破線)
@@ -1089,7 +1087,7 @@ end
 
 %% 平均値 (隣り合ったRF吸収線のピーク間隔の平均値)
 %11.2.1 除算後の吸収線スペクトル (平均値)
-figure(18)
+figure
 plot(BX1, Div_Absorption_Ave, 'r', 'LineWidth', 1);
 hold on
 plot(HITRAN_X, HITRAN_Y, '--g', 'LineWidth', 1);              % HITRANの表示 (破線)
