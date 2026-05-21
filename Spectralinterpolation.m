@@ -13,20 +13,20 @@ RFRep = 0.35e6;                              % RFモード間隔 [Hz]
 
 % Waveform Generator の CH2のバースト位相と変調波の種類の設定
 BurstPhase = 120;                            % バースト位相 [°] (90°以上で設定)
-mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
+mode = 2;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'my56';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'my52';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
-AcquisitionMin = 00;                          % データ取得時間 [分]
-AcquisitionSec = 33;                         % データ取得時間 [秒]
+AcquisitionMin = 13;                          % データ取得時間 [分]
+AcquisitionSec = 28;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
-PeakJudge = 0.93;
+PeakJudge = 0.97;
 
 
 % x軸の生成 (自己研究と合致しているか確認すること)
