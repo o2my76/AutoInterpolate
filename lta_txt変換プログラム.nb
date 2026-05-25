@@ -10,10 +10,10 @@
 NotebookFileLineBreakTest
 NotebookFileLineBreakTest
 NotebookDataPosition[       158,          7]
-NotebookDataLength[      4366,        116]
-NotebookOptionsPosition[      3962,        100]
-NotebookOutlinePosition[      4413,        118]
-CellTagsIndexPosition[      4370,        115]
+NotebookDataLength[      4327,        116]
+NotebookOptionsPosition[      3898,         99]
+NotebookOutlinePosition[      4374,        118]
+CellTagsIndexPosition[      4331,        115]
 WindowFrame->Normal*)
 
 (* Beginning of Notebook Content *)
@@ -34,18 +34,16 @@ Cell[BoxData[
    RowBox[{
     RowBox[{
     "importFolder", 
-     "=", "\"\<C:\\\\Users\\\\yuma0\\\\OneDrive - \:6771\:4eac\:96fb\:6a5f\
-\:5927\:5b66 \
-(1)\\\\\:30c7\:30b9\:30af\:30c8\:30c3\:30d7\\\\\:7814\:7a76\:5ba4\\\\MATLAB\
-\:7528\\\\lta\:30d5\:30a1\:30a4\:30eb\:5165\:308c\:308b\:7528\>\""}], ";"}], "\n", 
+     "=", "\"\<C:\\\\Users\\\\yuma0\\\\\:30c7\:30b9\:30af\:30c8\:30c3\:30d7\\\
+\\\:7814\:7a76\:5ba4\\\\MATLAB\:7528\\\\lta\:30d5\:30a1\:30a4\:30eb\:5165\
+\:308c\:308b\:7528\>\""}], ";"}], "\n", 
    RowBox[{
     RowBox[{
     "exportFolder", 
-     "=", "\"\<C:\\\\Users\\\\yuma0\\\\OneDrive - \:6771\:4eac\:96fb\:6a5f\
-\:5927\:5b66 \
-(1)\\\\\:30c7\:30b9\:30af\:30c8\:30c3\:30d7\\\\\:7814\:7a76\:5ba4\\\\MATLAB\
-\:7528\\\\txt\:30d5\:30a1\:30a4\:30eb\:53d6\:308a\:8fbc\:3080\:7528\>\""}], 
-    ";"}], "\[IndentingNewLine]", "\[IndentingNewLine]", 
+     "=", "\"\<C:\\\\Users\\\\yuma0\\\\\:30c7\:30b9\:30af\:30c8\:30c3\:30d7\\\
+\\\:7814\:7a76\:5ba4\\\\MATLAB\:7528\\\\txt\:30d5\:30a1\:30a4\:30eb\:53d6\
+\:308a\:8fbc\:3080\:7528\>\""}], ";"}], "\[IndentingNewLine]", 
+   "\[IndentingNewLine]", 
    RowBox[{
    "(*", "lta\:30c7\:30fc\:30bf\:306e\:4e00\:89a7\:53d6\:5f97", "*)"}], "\n", 
    RowBox[{
@@ -95,11 +93,13 @@ Cell[BoxData[
    3.9685353379692802`*^9}, 3.968535715344963*^9, {3.96854086350185*^9, 
    3.9685408804678936`*^9}, {3.968540949824316*^9, 3.9685409628241386`*^9}, {
    3.968541042027878*^9, 3.9685410759952755`*^9}, {3.98816186566061*^9, 
-   3.988161913248661*^9}},ExpressionUUID->"533644b9-e5e7-ea43-9e3d-\
+   3.988161913248661*^9}, {3.98867735024098*^9, 
+   3.9886773549771004`*^9}},ExpressionUUID->"533644b9-e5e7-ea43-9e3d-\
 c5670142cd7e"]
 },
-WindowSize->{958.5, 483},
-WindowMargins->{{Automatic, -10.5}, {Automatic, -869.25}},
+WindowSize->{960, 484.2},
+WindowMargins->{{Automatic, 64.20000000000005}, {
+  70.80000000000007, Automatic}},
 Magnification:>0.8 Inherited,
 FrontEndVersion->"14.3 for Microsoft Windows (64-bit) (2025\:5e747\:67088\
 \:65e5)",
@@ -117,7 +117,7 @@ CellTagsIndex->{}
 *)
 (*NotebookFileOutline
 Notebook[{
-Cell[558, 20, 3400, 78, 263, "Input",ExpressionUUID->"533644b9-e5e7-ea43-9e3d-c5670142cd7e"]
+Cell[558, 20, 3336, 77, 263, "Input",ExpressionUUID->"533644b9-e5e7-ea43-9e3d-c5670142cd7e"]
 }
 ]
 *)
