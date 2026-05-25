@@ -23,7 +23,7 @@ MathWorks社が提供するMATLABを用いて, データ処理からグラフ表
 
 ### プログラムのダウンロード
 MATLABプログラムは以下からリポジトリ全体をzip形式でダウンロードしてください. <br>
-[Download Zip（最新版）](https://github.com/o2my76/AutoInterpolate/archive/refs/heads/main.zip) **（最終更新日：2026年 5月 19日）**
+[Download Zip（最新版）](https://github.com/o2my76/AutoInterpolate/archive/refs/heads/main.zip) **（最終更新日：2026年 5月 25日）**
 
 動作環境：MATLAB R2025b 以降
 
@@ -73,7 +73,7 @@ VSCode には様々な拡張機能がありますが, ここでは必須の拡�
 ### 6. Mathematica
 Mathematica とは, Wolfram Research社が開発した技術計算システムです. 
 <br>
-東京電機大学は, Mathematica のサイトライセンス契約を結んでいるため, **大学のメールアドレス**で Mathematica を入手できます.
+東京電機大学では, Mathematica のサイトライセンス契約を結んでいるため, **大学のメールアドレス**で Mathematica を入手できます.
 
 詳細は[こちら](https://www.mrcl.dendai.ac.jp/mrcl/it-service/software/mathematica/)
 
