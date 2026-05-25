@@ -16,17 +16,18 @@ BurstPhase = 120;                            % バースト位相 [°] (90°以�
 mode = 2;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'my52';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'my80';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
-AcquisitionMin = 13;                          % データ取得時間 [分]
-AcquisitionSec = 28;                         % データ取得時間 [秒]
+AcquisitionMin = 00;                          % データ取得時間 [分]
+AcquisitionSec = 30;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
-PeakJudge = 0.97;
+RFPeakJudge = 0.92;
+OptPeakJudge = 0.945;
 
 
 % x軸の生成 (自己研究と合致しているか確認すること)
@@ -35,8 +36,8 @@ Fs = 200e6;                                  % サンプリングレート [S/s]
 t = (0:N-1) / Fs;                            % 時間軸の生成
 
 % スムージング量の設定
-% smth = (1.8e9 / Fs) * 90;                 % スムージング量の設定 (設定した数のサンプル数でそれぞれ算出値をとる)
-smth = 1620;
+smth = 1.8e9 * N / (Fs * 2^24) * 90;                 % スムージング量の設定 (設定した数のサンプル数でそれぞれ算出値をとる)
+% smth = 1620;
 disp('Smoothing Amount'); disp(smth);                         % スムージング量の表示
 
 
@@ -45,14 +46,14 @@ CH2_Freq = Fs / (N * 180 / (180 - (BurstPhase - 90) * 2));                   % �
 
 %% HITRANデータの読み込み
 % HITRANデータファイルの指定
-HITRANdata = readtable("C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\SpectrMixt_H13C14N_15Torr");
+HITRANdata = readtable("C:\Users\yuma0\デスクトップ\研究室\MATLAB用\SpectrMixt_H13C14N_15Torr");
 X_Fraction = HITRANdata{:, 1};                              % HITRANのx軸の取得 (波数 [cm^-1])
 HITRAN_X = X_Fraction * 29979245800;                        % 波数から光周波数に変換 [Hz]
 HITRAN_Y = HITRANdata{:, 2};                                % HITRANのy軸の取得 (透過率)
 
 %% 波長計で保存したtxtデータの読み込み、中心波長・光周波数シフト量の推定値の自動測定
 % 読み込むテキストファイルの指定
-wavelengthtxtFolder = "C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\txtファイル取り込む用";
+wavelengthtxtFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\txtファイル取り込む用";
 wavelengthFolder = fullfile(wavelengthtxtFolder, Name + ".txt");
 Tdata = readtable(wavelengthFolder);
 
@@ -113,7 +114,7 @@ disp('Optical Interpolation Amount [GHz]'); disp(OpDiff_modConv/1e9);           
 %% データの保存 (emf 形式) ※保存先があっているか確認
 % Judge = 1 の時、フォルダを自動で作成し、データを保存
 if Judge == 1 || Judge == 2
-    BaseFolder = "C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\MATLAB取得データ";  % ファイルの保存先フォルダの選択
+    BaseFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\MATLAB取得データ";  % ファイルの保存先フォルダの選択
     SubFolder1 = string(datetime('now', 'Format', 'yyyyMMdd'));                                 % 新しいフォルダ名の設定 (ex:20250101)
     SubFolder2 = string(datetime('now', 'Format', 'HH;mm;ss'));                                 % 新しいフォルダ名の設定 (ex:11;10;30)
     SubFolder2 = SubFolder2 + '_' + Name;                                                       % 保存時刻の後に実行ファイルの記録
@@ -172,7 +173,7 @@ dInputRange_volts = 0.4;                                  % 入力範囲（±0.4
 dSampleZeroValue = (2^(nBitsPerSample - 1)) - 0.5;        % サンプルのゼロ点
 dScaleFactor = dInputRange_volts / dSampleZeroValue;      % スケール係数
 
-BaseDataFolder = "C:\Users\yuma0\OneDrive - 東京電機大学 (1)\デスクトップ\研究室\MATLAB用\データ処理用元データ";
+BaseDataFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\データ処理用元データ";
 DataFolder = fullfile(BaseDataFolder, Name);
 
 % 1.1 ファイルパスの指定(参照光スペクトル)
@@ -389,7 +390,7 @@ RFminPeakDistance = 0.05e6;                                                % 検
 RFPeakAbsorption = -RFPeakAbsorption;                                      % 反転したデータを元に戻す
 
 % 不要なピーク成分を除去 (ベースライン部分のノイズ箇所をピークとして検出してしまっているため)
-idx = RFPeakAbsorption < PeakJudge;                                        % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = RFPeakAbsorption < RFPeakJudge;                                        % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 RFPeakLocation = RFPeakLocation(idx);                                      % 除去後のピーク位置(x軸)に「RFPeakLocation」を上書き
 RFPeakAbsorption = RFPeakAbsorption(idx);                                  % 除去後のピーク値(y軸)に「PEPeakAbsorption」を上書き
 
@@ -665,7 +666,7 @@ OPminPeakDistance = 0.05e12;            % 検出ピーク間隔の設定 (これ
 Peak_HITRAN_Y = -Peak_HITRAN_Y;         % 反転したデータを元に戻す
 
 % HITRANの不要なピーク成分を除去
-idx = Peak_HITRAN_Y < PeakJudge;       % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = Peak_HITRAN_Y < OptPeakJudge;       % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 Peak_HITRAN_X = Peak_HITRAN_X(idx);    % 除去後のHITRANのx軸に上書き
 Peak_HITRAN_Y = Peak_HITRAN_Y(idx);    % 除去後のHITRANのy軸に上書き
 
@@ -772,7 +773,7 @@ end
 % 8.1.4 吸収線ピーク位置の検出、HITRANとの比較 (推定値)
 [PeakAbsorption_modConv, PeakLocation_modConv] = findpeaks(-Absorption_modConv, AX1, 'MinPeakDistance', OPminPeakDistance);
 PeakAbsorption_modConv = -PeakAbsorption_modConv;                                   % 反転したデータを元に戻す
-idx = PeakAbsorption_modConv < PeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = PeakAbsorption_modConv < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 PeakLocation_modConv = PeakLocation_modConv(idx);                                  % 除去後のx軸に上書き
 PeakAbsorption_modConv = PeakAbsorption_modConv(idx);                              % 除去後のy軸に上書き
 
@@ -899,7 +900,7 @@ end
 % 8.2.4 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
 [PeakAbsorption_Prop, PeakLocation_Prop] = findpeaks(-Absorption_Prop, BX1, 'MinPeakDistance', OPminPeakDistance);
 PeakAbsorption_Prop = -PeakAbsorption_Prop;                                   % 反転したデータを元に戻す
-idx = PeakAbsorption_Prop < PeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = PeakAbsorption_Prop < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 PeakLocation_Prop = PeakLocation_Prop(idx);                                  % 除去後のx軸に上書き
 PeakAbsorption_Prop = PeakAbsorption_Prop(idx);                              % 除去後のy軸に上書き
 
@@ -1213,7 +1214,7 @@ end
 % 11.1.2 吸収線ピーク位置の検出、HITRANとの比較 (推定値)
 [DivPeakAbsorption_modConv, DivPeakLocation_modConv] = findpeaks(-Div_Absorption_modConv, AX1, 'MinPeakDistance', OPminPeakDistance);
 DivPeakAbsorption_modConv = -DivPeakAbsorption_modConv;                                   % 反転したデータを元に戻す
-idx = DivPeakAbsorption_modConv < PeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = DivPeakAbsorption_modConv < OptPeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 DivPeakLocation_modConv = DivPeakLocation_modConv(idx);                                  % 除去後のx軸に上書き
 DivPeakAbsorption_modConv = DivPeakAbsorption_modConv(idx);                              % 除去後のy軸に上書き
 
@@ -1268,7 +1269,7 @@ end
 % 11.2.2 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
 [DivPeakAbsorption_Prop, DivPeakLocation_Prop] = findpeaks(-Div_Absorption_Prop, BX1, 'MinPeakDistance', OPminPeakDistance);
 DivPeakAbsorption_Prop = -DivPeakAbsorption_Prop;                                   % 反転したデータを元に戻す
-idx = DivPeakAbsorption_Prop < PeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = DivPeakAbsorption_Prop < OptPeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 DivPeakLocation_Prop = DivPeakLocation_Prop(idx);                                  % 除去後のx軸に上書き
 DivPeakAbsorption_Prop = DivPeakAbsorption_Prop(idx);                              % 除去後のy軸に上書き
 
@@ -1314,7 +1315,8 @@ if Judge == 1 || Judge == 2
     % 保存するファイル名を作成 (%.6f: 小数点以下6桁の浮動小数点数を出力, \n: 改行)
     txtFileName = fullfile(NewFolder, [Name, '_Results.txt']);
     fid = fopen(txtFileName, 'a');                                                % 書き込みで開く
-    fprintf(fid, 'PeakJudge: %.2f \n', PeakJudge);
+    fprintf(fid, 'RF Peak Judge: %.2f \n', RFPeakJudge);
+    fprintf(fid, 'Opt Peak Judge: %.2f \n', OptPeakJudge);
     fprintf(fid, 'Corrected Peak Residual Between HITRAN and Modified Conv. Method [GHz]: '); fprintf(fid, ' %.4f ', DivPeakRes_HITRAN_AX/1e9);
     fprintf(fid, '\n');
     fprintf(fid, 'Corrected Peak Residual Between HITRAN and Proposed Method [GHz]:       '); fprintf(fid, ' %.4f ', DivPeakRes_HITRAN_BX/1e9);
