@@ -13,21 +13,18 @@ RFRep = 0.35e6;                              % RFモード間隔 [Hz]
 
 % Waveform Generator の CH2のバースト位相と変調波の種類の設定
 BurstPhase = 120;                            % バースト位相 [°] (90°以上で設定)
-mode = 2;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
+mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
 NamePrefix = 'my';                          % 読み込むファイルの接頭語 
-StartDataNum = 73;                          % 読み込むファイルの開始番号 (例: StartDataNum = 1 と入力すると、my1から読み込みを開始する)
-DataNumber = 3;                             % 読み込むファイルの数 
-k = 11;                                     % 変化させる倍率の数
-m = 10;                                     % 倍率を変化させる際の増分 (例: 50と入力すると、算出値の倍率が50ずつ変化する)
-l = -2900;                                  % 倍率を変化させる際の増分のオフセット
+StartDataNum = 58;                          % 読み込むファイルの開始番号 (例: StartDataNum = 1 と入力すると、my001から読み込みを開始する)
+DataNumber = 15;                            % 読み込むファイルの数 
+k = 101;                                    % 変化させる倍率の数
+m = 100;                                    % 倍率を変化させる際の増分 (例: 50と入力すると、算出値の倍率が50ずつ変化する)
+l = 0;                                      % 倍率を変化させる際の増分のオフセット
 
-% 波長計で取得した時間を入力 [s] (据え置き)
-AcquisitionMin = 00;                         % データ取得時間 [分]
-AcquisitionSec = 30;                         % データ取得時間 [秒]
-
-AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
+Center_wavelength = 1532e-9;                 % 中心波長 [m]
+Fc = 299792458 / Center_wavelength;          % 中心波長から中心周波数を算出 [Hz]
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
 RFPeakJudge = 0.92;
@@ -40,11 +37,11 @@ t = (0:N-1) / Fs;                            % 時間軸の生成
 
 % スムージング量の設定
 smth = (1.8e9 / Fs) * 90 * N / 2^24;                 % スムージング量の設定 (設定した数のサンプル数でそれぞれ算出値をとる)
+
 CH2_Freq = Fs / (N * 180 / (180 - (BurstPhase - 90) * 2));                   % 変調波周波数
 
-j_shift = ((1:k) - (k + 1) / 2).';
-MagnificationCorrection = j_shift * m + l;
-
+j_shift = ((1:k) - (k + 1) / 2).';              % 倍率を変化させる際の増分の係数
+MagnificationCorrection = j_shift * m + l;      % 倍率を変化させる際の増分 
 %% 全データ保存用配列
 Amp_All_GHz = nan(k, DataNumber);
 OpDiff_All_GHz = nan(k, DataNumber);
@@ -85,39 +82,6 @@ for p = 1:DataNumber
     fprintf('Processing: %s  (%d / %d)\n', Name, p, DataNumber);
     fprintf('==============================\n');
 
-    %% 波長計で保存したtxtデータの読み込み、中心波長・光周波数シフト量の推定値の自動測定
-    % 読み込むテキストファイルの指定
-    wavelengthtxtFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\txtファイル取り込む用";
-    wavelengthFolder = fullfile(wavelengthtxtFolder, Name + ".txt");
-    Tdata = readtable(wavelengthFolder);
-
-    Tdata_Time = Tdata{:, 1} / 1e3;                 % 波長計取得データの時間軸の取得 [s]
-    wavelength = Tdata{:, 2} / 1e9;                 % 波長計取得データの中心波長の取得 [nm]
-
-    % 波長計で取得した時間から中心波長及び光周波数シフト量の推定値を測定
-    TimeRange = (AcquisitionTime <= Tdata_Time) & (Tdata_Time <= AcquisitionTime + 1);     % 取得する範囲の設定
-    Acquisition_TimerRange = Tdata_Time(TimeRange);                                        % 設定した範囲の時間軸の取得
-    Acquisition_wavelength = wavelength(TimeRange).';                                      % 設定した範囲の波長軸の取得
-
-    % 波長の最大値と最小値の測定 (2/3周期のうち、最大値と最小値を検出するようにする)
-    [Max_wavelength, Max_LocsTime] = findpeaks(Acquisition_wavelength, Acquisition_TimerRange, 'MinPeakDistance', 1/CH2_Freq);
-    [Min_wavelength, Min_LocsTime] = findpeaks(-Acquisition_wavelength, Acquisition_TimerRange, 'MinPeakDistance', 1/CH2_Freq);
-    Min_wavelength = -Min_wavelength;                                                  % 反転したデータを元に戻す
-
-    Center_wavelength = (mean(Max_wavelength) + mean(Min_wavelength)) / 2;
-    Fc = 299792458 / Center_wavelength;                                                % 中心波長から中心周波数を算出
-
-    % 中心波長の最大値と最小値から光周波数シフト量の推定値の算出
-    OpDiff_Max = 299792458 / mean(Max_wavelength);                                     % 波長の最大値の平均から光周波数に変換
-    OpDiff_Min = 299792458 / mean(Min_wavelength);                                     % 波長の最小値の平均から光周波数に変換
-
-    % 光周波数シフト量の算出 (推定値) (mode 1:三角波, mode 2:正弦波)
-    if mode == 1
-        OpDiff_modConv = (OpDiff_Min - OpDiff_Max) / (180 / (180 - (BurstPhase - 90) * 2));  
-    end
-    if mode == 2
-        OpDiff_modConv = (OpDiff_Min - OpDiff_Max) * sin(2 * (BurstPhase - 90) * pi / 180);
-    end
     %% Alazarで取得したBinファイルの読み込み
     % 定数を事前に計算 (Binファイルを読み込むにあたって)
     nBitsPerSample = 16;                                      % サンプルのビット数
@@ -176,17 +140,6 @@ for p = 1:DataNumber
     f3 = f3(RFmask3);                                              % RF吸収線のx軸のうち、設定した「mask」の範囲のみを保存
     Absorption= Absorption(RFmask3);                       % RF吸収線のy軸のうち、設定した「mask」の範囲のみを保存
 
-
-    %% デュアルコムスペクトルのスムージング処理 (平滑化)
-    SmthCombA = movmean(abs(CombA), smth);                        % RF参照光スペクトルのスムージング処理
-    SmthCombB = movmean(abs(CombB), smth);                        % RF透過光スペクトルのスムージング処理
-
-
-
-    %% 除算によるRF吸収スペクトルの取得・表示
-    % 3.1 RF吸収スペクトルの取得及び表示（スムージング処理前）
-
-    % 3.2.1 RF吸収スペクトルの取得及び表示（スムージング処理後）+ マスク後のRF吸収スペクトルの表示及び吸収線ピークの検出、表示
     % RF吸収スペクトルのスムージング処理
     SmthAbsorption = movmean(abs(Absorption), smth);                       % RF吸収スペクトルのスムージング処理
 
@@ -220,8 +173,6 @@ for p = 1:DataNumber
 
 
     %% 隣り合ったピーク間隔から光周波数シフト量を自動で算出
-    % 4.1 設計した光周波数シフト量から隣り合った吸収線ピーク間隔の算出 (推定値)
-    modConv_PeakDiff = abs(OpRep * RFDiff / OpDiff_modConv - RFRep);              % 推定値の大きさを「modConv_PeakDiff」として保存
 
     % 4.2.1 隣り合ったRF吸収線ピーク間隔の算出値の算出
     Prop_PeakDiff = mean(PeakDiff1);                                       % 隣り合った吸収線ピーク間隔の算出値を「Prop_PeakDiff」として保存
@@ -229,28 +180,25 @@ for p = 1:DataNumber
     % 4.2.2 RFピーク間隔の算出値を用いた光周波数シフト量の算出
     OpDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff +RFRep);                 % 算出値から算出した光周波数シフト量を「OpDiff_Prop」として保存
 
-
-
     %% 準備：配列の初期化 / 事前割り当て・倍率の算出
     % 事前準備1: 配列の初期化・事前割り当て (これをするとデータ処理時間が格段に速くなる)
     n = 35;
     RF_Center = zeros(1,n); OP_Center = zeros(1,n);
-    B_modConv = zeros(1, n);    B_Prop = zeros(1, n);
+    B_Prop = zeros(1, n);
     RFX1 = cell(n, 1); RFX2 = cell(n, 1); 
     RFY1 = cell(1, n); RFY2 = cell(1, n); 
-    OPX1_modConv = cell(n, 1); OPX1_Prop = cell(n, 1); 
-    OPX2_modConv = cell(n, 1); OPX2_Prop = cell(n, 1); 
-    cutOPX1_modConv = cell(n, 1); cutOPX1_Prop = cell(n, 1);
-    cutOPY1_modConv = cell(1, n); cutOPY1_Prop = cell(1, n);
-    cutOPX2_modConv = cell(n, 1); cutOPX2_Prop = cell(n, 1);
-    cutOPY2_modConv = cell(1, n); cutOPY2_Prop = cell(1, n);
+    OPX1_Prop = cell(n, 1); 
+    OPX2_Prop = cell(n, 1); 
+    cutOPX1_Prop = cell(n, 1);
+    cutOPY1_Prop = cell(1, n);
+    cutOPX2_Prop = cell(n, 1);
+    cutOPY2_Prop = cell(1, n);
 
     Amp = nan(k, 1);
     A_Prop_List = nan(k, 1);
     OpDiff_Prop_List = nan(k, 1);
 
     % 事前準備2: 算出したそれぞれのピーク間隔より算出した光周波数シフト量による倍率算出 (光周波数シフト量/RF周波数シフト量)
-    A_modConv = OpDiff_modConv / RFDiff;                         % 波長計データから得られた推定値を用いた倍率の算出
     A_Prop = OpDiff_Prop / RFDiff;                         % 算出値を用いた倍率の算出
     A_Prop_base = A_Prop;                                  % 基準となる倍率を保存
 
@@ -265,8 +213,6 @@ for p = 1:DataNumber
         for i = 1:n
             RFc = AOM + RFRep * (i - 18);                                                        % RFコムスペクトルの中心周波数を算出 (共通)
             RF_Center(i) = RFc;                                                                  % 各RFコムスペクトル中心周波数を「RF_Center」に格納
-            B_modConv_temp = Fc + (OpRep * (i - 18)) - (A_modConv * (AOM + RFRep * (i - 18)));           % オフセット周波数の算出 (推定値)
-            B_modConv(i) = B_modConv_temp;                                                               % 各RFコムスペクトルのオフセット周波数を「B_modConv」に格納
             B_Prop_temp = Fc + (OpRep * (i - 18)) - (A_Prop * (AOM + RFRep * (i - 18)));           % オフセット周波数の算出 (算出値)
             B_Prop(i) = B_Prop_temp;                                                               % 各RFコムスペクトルのオフセット周波数を「B_Prop」に格納
 
@@ -285,12 +231,8 @@ for p = 1:DataNumber
             cutCombB = CombB(cut_RF);                                       % y軸のうち「cut」で指定した範囲を切り取り、「cutCombB」として保存
             RFY2{i} = cutCombB;                                                 % 「RFY2」に格納
             % 5.4 RF領域から光領域へ変換、結果を格納
-            OP1_modConv = A_modConv .* cutf1 + B_modConv_temp;                                  % 光領域へ変換した参照光スペクトルの保存
-            OPX1_modConv{i} = OP1_modConv;                                                  % 「OPX1_modConv」に格納
-            OP2_modConv = A_modConv .* cutf2 + B_modConv_temp;                                  % 光領域へ変換した透過光スペクトルの保存
-            OPX2_modConv{i} = OP2_modConv;                                                  % 「OPX2_modConv」に格納
             OP1_Prop = A_Prop .* cutf1 + B_Prop_temp;                                  % 光領域へ変換した参照光スペクトルの保存
-            OPX1_Prop{i} = OP1_Prop;                                                  % 「OPX1_modConv」に格納
+            OPX1_Prop{i} = OP1_Prop;                                                  % 「OPX1_Prop」に格納
             OP2_Prop = A_Prop .* cutf2 + B_Prop_temp;                                  % 光領域へ変換した透過光スペクトルの保存
             OPX2_Prop{i} = OP2_Prop;                                                  % 「OPX2_modConv」に格納
             
@@ -300,16 +242,6 @@ for p = 1:DataNumber
             % 6.2 EOコムの切り取り範囲の設定、切り取りの実行、結果を格納
             OPmin = -OpRep / 2 + OPFc;                                      % EOコムスペクトルの中心から切り取る範囲の最小値
             OPmax = OpRep / 2 + OPFc;                                       % EOコムスペクトルの中心から切り取る範囲の最大値
-                % 6.2.1 推定値
-                cutOP_modConv = (OPmin <= OP1_modConv) & (OP1_modConv < OPmax);     % 推定値におけるEOコムスペクトルの切り取る範囲を「cutOP_modConv」として保存
-                X1_modConv = OP1_modConv(cutOP_modConv);                            % 切り取り後の参照光スペクトルのx軸の保存
-                cutOPX1_modConv{i} = X1_modConv;                                % 「cutOPX1_modConv」に格納
-                Y1_modConv = cutCombA(cutOP_modConv);                       % 切り取り後の参照光スペクトルのy軸の保存
-                cutOPY1_modConv{i} = Y1_modConv;                                % 「cutOPY1_modConv」に格納
-                X2_modConv = OP2_modConv(cutOP_modConv);                            % 切り取り後の透過光スペクトルのx軸の保存
-                cutOPX2_modConv{i} = X2_modConv;                                % 「cutOPX2_modConv」に格納
-                Y2_modConv = cutCombB(cutOP_modConv);                       % 切り取り後の透過光スペクトルのy軸の保存
-                cutOPY2_modConv{i} = Y2_modConv;                                % 「cutOPY2_modConv」に格納
                 % 6.2.2 算出値
                 cutOP_Prop = (OPmin <= OP1_Prop) & (OP1_Prop < OPmax);     % 以下同様
                 X1_Prop = OP1_Prop(cutOP_Prop);
@@ -324,13 +256,6 @@ for p = 1:DataNumber
 
 
         %% 光領域変換後のEOコムスペクトルの表示 (切り取り前・スムージング前後)
-        % スムージング前の切取前の光領域変換後のEOコムスペクトルの表示 (推定値)
-
-        for i = 1:n
-            SmthRFY1 = movmean(abs(RFY1{i}), smth);                       % RF参照光スペクトルのスムージング処理
-            SmthRFY2 = movmean(abs(RFY2{i}), smth);                       % RF透過光スペクトルのスムージング処理
-        end
-
         % 切取前の光領域変換後のEOコムスペクトルの表示 (算出値)
         for i = 1:n
             SmthRFY1 = movmean(abs(RFY1{i}), smth);                       % RF参照光スペクトルのスムージング処理
@@ -359,47 +284,7 @@ for p = 1:DataNumber
 
 
         %% 切り取り後のEOコムスペクトル・吸収スペクトルの表示・ピーク位置の検出
-        % 推定値 (波長計で測定した光周波数シフト量)
-        % 8.1.1 スムージング前の切取後の光領域変換後のEOコムスペクトルの表示 (推定値)
-        % Cell中のベクトルをすべて縦ベクトルに変換
-        AX2_col = cellfun(@(v) v(:), cutOPX2_modConv, 'UniformOutput', false);
-        AY2_col = cellfun(@(v) v(:), cutOPY2_modConv, 'UniformOutput', false);
-        AX1_col = cellfun(@(v) v(:), cutOPX1_modConv, 'UniformOutput', false);
-        AY1_col = cellfun(@(v) v(:), cutOPY1_modConv, 'UniformOutput', false);
-        % 縦方向に連結し、1本のスペクトルの線にする
-        AX2 = vertcat(AX2_col{:}); AY2 = vertcat(AY2_col{:});
-        AX1 = vertcat(AX1_col{:}); AY1 = vertcat(AY1_col{:});
-        % グラフの表示
-
-        % 8.1.2 スムージング後の切取後の光領域変換後のEOコムスペクトルの表示 (推定値)
-        SmthAY1 = movmean(abs(AY1), smth);                       % 参照光スペクトルのスムージング処理
-        SmthAY2 = movmean(abs(AY2), smth);                       % 透過光スペクトルのスムージング処理
-
-        % 8.1.3 吸収スペクトルの取得及び表示、HITRANとの比較 (推定値)
-        Absorption_modConv = AY2 ./ AY1;                                  % 透過率の算出
-        % 吸収スペクトルのスムージング処理
-        Absorption_modConv = movmean(abs(Absorption_modConv), smth);                       % 吸収スペクトルのスムージング処理 
-
-
-        %% ピーク位置の検出 (推定値)
-        % 8.1.4 吸収線ピーク位置の検出、HITRANとの比較 (推定値)
-        [PeakAbsorption_modConv, PeakLocation_modConv] = findpeaks(-Absorption_modConv, AX1, 'MinPeakDistance', OPminPeakDistance);
-        PeakAbsorption_modConv = -PeakAbsorption_modConv;                                   % 反転したデータを元に戻す
-        idx = PeakAbsorption_modConv < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
-        PeakLocation_modConv = PeakLocation_modConv(idx);                                  % 除去後のx軸に上書き
-        PeakAbsorption_modConv = PeakAbsorption_modConv(idx);                              % 除去後のy軸に上書き
-
-        % HITRANとサイズが異なる場合に、サイズの小さい方に合わせる
-        if length(Peak_HITRAN_X) ~= length(PeakLocation_modConv)
-            MinLen = min(length(Peak_HITRAN_X), length(PeakLocation_modConv));
-            Peak_HITRAN_X = Peak_HITRAN_X(1:MinLen);
-            Peak_HITRAN_Y = Peak_HITRAN_Y(1:MinLen);
-            PeakLocation_modConv = PeakLocation_modConv(1:MinLen);
-            PeakAbsorption_modConv = PeakAbsorption_modConv(1:MinLen);
-        end
-
-
-        %% 算出値 (隣り合ったRF吸収線のピーク間隔の算出値)
+        % 算出値 (隣り合ったRF吸収線のピーク間隔の算出値)
         % 8.2.1 スムージング前の切取後の光領域変換後のEOコムスペクトルの表示 (算出値)
         % Cell中のベクトルをすべて縦ベクトルに変換
         BX2_col = cellfun(@(v) v(:), cutOPX2_Prop, 'UniformOutput', false);
@@ -439,11 +324,9 @@ for p = 1:DataNumber
 
         %% 取得データとHITRANのピーク間隔の差分の測定 / 比較・標準偏差の算出
         % HITRANと取得した吸収線ピーク位置の残差の算出及び表示
-        PeakRes_HITRAN_AX = abs(Peak_HITRAN_X(1:end).' - PeakLocation_modConv(1:end).');                    % HITRANと推定値とのピーク位置の差分の算出
         PeakRes_HITRAN_BX = abs(Peak_HITRAN_X(1:end).' - PeakLocation_Prop(1:end).');                    % HITRANと算出値とのピーク位置の差分の算出
 
         % 標準偏差の算出及び表示 (ここ大事)
-        PeakRes_HITRAN_AX_SD = std(PeakRes_HITRAN_AX);
         PeakRes_HITRAN_BX_SD = std(PeakRes_HITRAN_BX);
 
         Amp(j) = PeakRes_HITRAN_BX_SD;     % 算出値のピーク位置の差分の標準偏差を「Amp」に保存
