@@ -13,15 +13,15 @@ RFRep = 0.35e6;                              % RFモード間隔 [Hz]
 
 % Waveform Generator の CH2のバースト位相と変調波の種類の設定
 BurstPhase = 120;                            % バースト位相 [°] (90°以上で設定)
-mode = 2;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
+mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'my80';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'my089';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
 AcquisitionMin = 00;                          % データ取得時間 [分]
-AcquisitionSec = 30;                         % データ取得時間 [秒]
+AcquisitionSec = 26;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
@@ -51,11 +51,45 @@ X_Fraction = HITRANdata{:, 1};                              % HITRANのx軸の�
 HITRAN_X = X_Fraction * 29979245800;                        % 波数から光周波数に変換 [Hz]
 HITRAN_Y = HITRANdata{:, 2};                                % HITRANのy軸の取得 (透過率)
 
-%% 波長計で保存したtxtデータの読み込み、中心波長・光周波数シフト量の推定値の自動測定
-% 読み込むテキストファイルの指定
-wavelengthtxtFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\txtファイル取り込む用";
-wavelengthFolder = fullfile(wavelengthtxtFolder, Name + ".txt");
-Tdata = readtable(wavelengthFolder);
+%% 波長計で保存したltaファイルをtxtデータへ変換、中心波長・光周波数シフト量の推定値の自動測定
+InportltaFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\ltaファイル入れる用";            % 変換前のltaファイルが入ったフォルダの指定
+ExporttxtFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\txtファイル取り込む用";          % 変換後のtxtファイルが入ったフォルダの指定
+ProcessedltaFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\ltaファイル入れる用\実行済み"; % 変換後のltaファイルが入ったフォルダの指定
+
+% 出力フォルダが無ければ作成
+if ~exist(ExporttxtFolder,'dir')
+    mkdir(ExporttxtFolder);
+end
+
+wavelengthltaFolder = dir(fullfile(InportltaFolder, "*.lta"));  % 指定したフォルダ内のltaファイルの一覧を取得
+
+% ltaファイルをtxtデータへ変換
+for i = 1:length(wavelengthltaFolder)
+    InputltaFile = fullfile(InportltaFolder, wavelengthltaFolder(i).name);  % ltaファイルのフルパスを作成
+    [~, Name, ~] = fileparts(wavelengthltaFolder(i).name);  % ファイル名を取得
+    OutputtxtFile = fullfile(ExporttxtFolder, Name + ".txt");  % 出力するtxtファイルのフルパスを作成
+    % ltaファイルの読み込み
+    fid = fopen(InputltaFile, 'r');  % ltaファイルを読み込みモードで開く
+    if fid == -1
+        error('Unable to open the file: %s', InputltaFile);
+    end
+    data = fread(fid, '*char')';  % ltaファイルの内容を文字列として読み込む
+    fclose(fid);  % ファイルを閉じる
+
+    % txtファイルに変換して保存
+    fid = fopen(OutputtxtFile, 'w');  % txtファイルを書き込みモードで開く
+    if fid == -1
+        error('Unable to create the file: %s', OutputtxtFile);
+    end
+    fprintf(fid, '%s', data);  % 変換したデータをtxtファイルに書き込む
+    fclose(fid);  % ファイルを閉じる
+
+    % 変換済みのltaファイルを移動
+    movefile(InputltaFile, fullfile(ProcessedltaFolder, wavelengthltaFolder(i).name));
+end
+
+wavelengthtxtFolder = fullfile(ExporttxtFolder, Name + ".txt");
+Tdata = readtable(wavelengthtxtFolder);
 
 Tdata_Time = Tdata{:, 1} / 1e3;                 % 波長計取得データの時間軸の取得 [s]
 wavelength = Tdata{:, 2} / 1e9;                 % 波長計取得データの中心波長の取得 [nm]
