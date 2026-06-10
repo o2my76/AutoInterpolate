@@ -16,18 +16,18 @@ BurstPhase = 120;                            % バースト位相 [°] (90°以�
 mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'my089';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'my063';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
-AcquisitionMin = 00;                          % データ取得時間 [分]
-AcquisitionSec = 26;                         % データ取得時間 [秒]
+AcquisitionMin = 0;                          % データ取得時間 [分]
+AcquisitionSec = 23;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
 RFPeakJudge = 0.92;
-OptPeakJudge = 0.945;
+OptPeakJudge = 0.94;
 
 
 % x軸の生成 (自己研究と合致しているか確認すること)
@@ -37,12 +37,11 @@ t = (0:N-1) / Fs;                            % 時間軸の生成
 
 % スムージング量の設定
 smth = 1.8e9 * N / (Fs * 2^24) * 90;                 % スムージング量の設定 (設定した数のサンプル数でそれぞれ算出値をとる)
-% smth = 1620;
 disp('Smoothing Amount'); disp(smth);                         % スムージング量の表示
 
 
 disp('Measurement time [ms]'); disp(N/Fs*1e3);    % 測定時間の表示
-CH2_Freq = Fs / (N * 180 / (180 - (BurstPhase - 90) * 2));                   % 三角波周波数
+CH2_Freq = Fs / (2 * N * 180 / (180 - (BurstPhase - 90) * 2));                   % 三角波周波数
 
 %% HITRANデータの読み込み
 % HITRANデータファイルの指定
@@ -93,56 +92,94 @@ Tdata = readtable(wavelengthtxtFolder);
 
 Tdata_Time = Tdata{:, 1} / 1e3;                 % 波長計取得データの時間軸の取得 [s]
 wavelength = Tdata{:, 2} / 1e9;                 % 波長計取得データの中心波長の取得 [nm]
+OptFrequency = 299792458 ./ wavelength;         % 波長から光周波数に変換 [Hz]
 
 % 波長計で取得した時間から中心波長及び光周波数シフト量の推定値を測定
 TimeRange = (AcquisitionTime <= Tdata_Time) & (Tdata_Time <= AcquisitionTime + 1);     % 取得する範囲の設定
 Acquisition_TimerRange = Tdata_Time(TimeRange);                                        % 設定した範囲の時間軸の取得
-Acquisition_wavelength = wavelength(TimeRange).';                                      % 設定した範囲の波長軸の取得
+Acquisition_OptFrequency = OptFrequency(TimeRange).';                                   % 設定した範囲の光周波数軸の取得
 
 % 設定した範囲における波長計で取得したデータの表示
 figure
-plot(Acquisition_TimerRange, Acquisition_wavelength, 'LineWidth', 1);
-% title('Acquisition of wavelength Meter')
+plot(Acquisition_TimerRange, Acquisition_OptFrequency, 'LineWidth', 1);
+
 xlabel('Time [s]')                                                                 % x軸ラベル
-ylabel('wavelength [nm]')                                                          % y軸ラベル
+ylabel('Optical Frequency [THz]')                                                   % y軸ラベル
 ax = gca;                                                                          % 現在の座標軸の取得 (gca: get current axis)
 ytick_w = ax.YTick;                                                                % 現在のy軸目盛位置の数値ベクトルを返す
-yticklabels(arrayfun(@(v) num2str(v*1e9), ytick_w, 'UniformOutput', false));       % nm表記に設定 (10^-9 部分を削除)
+yticklabels(arrayfun(@(v) num2str(v/1e12, '%.3f'), ytick_w, 'UniformOutput', false));            % THz表記に設定
 fontsize(20,"points")                                                              % フォントサイズの設定
 fontname("Times New Roman")                                                        % フォント名の設定
 
 hold on
 
-% 波長の最大値と最小値の測定 (2/3周期のうち、最大値と最小値を検出するようにする)
-[Max_wavelength, Max_LocsTime] = findpeaks(Acquisition_wavelength, Acquisition_TimerRange, 'MinPeakDistance', 1/CH2_Freq);
-[Min_wavelength, Min_LocsTime] = findpeaks(-Acquisition_wavelength, Acquisition_TimerRange, 'MinPeakDistance', 1/CH2_Freq);
-Min_wavelength = -Min_wavelength;                                                  % 反転したデータを元に戻す
-plot(Max_LocsTime, Max_wavelength, 'bv', 'MarkerFaceColor', 'y');                  % 検出した最大値を谷(黄色)でプロット
-plot(Min_LocsTime, Min_wavelength, 'bv', 'MarkerFaceColor', 'w');                  % 検出した最小値を谷(白色)でプロット
+% 光周波数の最大値と最小値の測定 (2/3周期のうち、最大値と最小値を検出するようにする)
+[Max_OptFrequency, Max_LocsTime] = findpeaks(Acquisition_OptFrequency, Acquisition_TimerRange, 'MinPeakDistance', 1/(2*CH2_Freq));
+[Min_OptFrequency, Min_LocsTime] = findpeaks(-Acquisition_OptFrequency, Acquisition_TimerRange, 'MinPeakDistance', 1/(2*CH2_Freq));
+Min_OptFrequency = -Min_OptFrequency;                                              % 反転したデータを元に戻す
+plot(Max_LocsTime, Max_OptFrequency, 'bv', 'MarkerFaceColor', 'y');                % 検出した最大値を谷(黄色)でプロット
+plot(Min_LocsTime, Min_OptFrequency, 'bv', 'MarkerFaceColor', 'w');                % 検出した最小値を谷(白色)でプロット
 
 hold off
 
+
+T_Min = Min_LocsTime(1) + (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の最初の位置を取得
+idx_Max = find(Max_LocsTime > T_Min, 1, 'first');    % 最小値の位置より後の最大値の位置を取得
+T_Max = Max_LocsTime(idx_Max) - (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の位置より後の最大値の位置を取得
+
+UpRange = (Acquisition_TimerRange >= T_Min) & (Acquisition_TimerRange <= T_Max);            % 最小値の位置から最大値の位置までの範囲を設定
+UpTime = Acquisition_TimerRange(UpRange);                                                   % 設定した範囲の時間軸の取得
+UpOptFrequency = Acquisition_OptFrequency(UpRange).';                                       % 設定した範囲の光周波数軸の取得
+
+UpTimeStart = UpTime - UpTime(1);    % 最小値の位置を0とするため、最小値の位置からの時間軸を生成
+
+% 多項式近似
+p = polyfit(UpTimeStart, UpOptFrequency, 1);    % 最小値の位置から最大値の位置までの範囲のデータを多項式近似
+FitOptFrequency = polyval(p, UpTimeStart);      % 多項式近似したデータのy軸の値を算出
+
+% 微分して光周波数の瞬間速度を算出
+dp = polyder(p);    % 多項式近似の微分を算出
+V_opt = polyval(dp, UpTimeStart);    % 多項式近似の微分の値を算出
+
+% 多項式近似との差分
+DiffOptFrequency = mean(abs(UpOptFrequency - FitOptFrequency));    % 多項式近似との周波数差分を算出
+disp('Diviation from Polynomial fitting [GHz]'); disp(DiffOptFrequency/1e9);    % 多項式近似との差分を表示
+
+% 倍率値への影響
+DiffMagnification = DiffOptFrequency / RFDiff;    % 倍率値への影響を算出
+disp('Influence on Magnification Factor'); disp(num2str(DiffMagnification, '%.4f'));    % 倍率値への影響を表示
+
+figure
+plot(UpTime, UpOptFrequency, 'LineWidth', 1);                          % 最小値の位置から最大値の位置までの範囲のデータの表示
+hold on
+plot(UpTime, FitOptFrequency, 'r--', 'LineWidth', 2);                  % 多項式近似の結果を赤い破線で表示
+xlabel('Time [s]')                                                                 % x軸ラベル
+ylabel('Optical Frequency [THz]')                                                   % y軸ラベル
+ax = gca;                                                                          % 現在の座標軸の取得 (gca: get current axis)
+ytick_w = ax.YTick;                                                                % 現在のy軸目盛位置の数値ベクトルを返す
+yticklabels(arrayfun(@(v) num2str(v/1e12, '%.3f'), ytick_w, 'UniformOutput', false));            % THz表記に設定
+fontsize(20,"points")                                                              % フォントサイズの設定
+fontname("Times New Roman")                                                        % フォント名の設定
+hold off
+
 % 取得した最大値と最小値の算出値から中心波長の算出
-disp('Min wavelength [nm]'); disp(num2str(Min_wavelength*1e9, '%.4f  '));          % 算出した中心波長の表示
-disp('Max wavelength [nm]'); disp(num2str(Max_wavelength*1e9, '%.4f  '));          % 算出した中心波長の表示
+Min_OptFrequency = Min_OptFrequency(1);                                           % 光周波数の最小値の取得
+Max_OptFrequency = Max_OptFrequency(idx_Max);                                     % 光周波数の最大値の取得
+disp('Min Optical Frequency [THz]'); disp(num2str(Min_OptFrequency/1e12, '%.4f  '));          % 光周波数の最小値の表示
+disp('Max Optical Frequency [THz]'); disp(num2str(Max_OptFrequency/1e12, '%.4f  '));          % 光周波数の最大値の表示
 
-Center_wavelength = (mean(Max_wavelength) + mean(Min_wavelength)) / 2;
-disp('Center wavelength [nm]'); disp(num2str(Center_wavelength*1e9, '%.4f'));      % 算出した中心波長の表示
-Fc = 299792458 / Center_wavelength;                                                % 中心波長から中心周波数を算出
+Fc = (Max_OptFrequency + Min_OptFrequency) / 2; % 中心周波数の算出
+disp('Center Optical Frequency [THz]'); disp(num2str(Fc/1e12, '%.4f'));      % 算出した中心周波数の表示
 disp('Center Frequency [THz]'); disp(Fc/1e12);                                     % 中心周波数の表示
-
-% 中心波長の最大値と最小値から光周波数シフト量の推定値の算出
-OpDiff_Max = 299792458 / mean(Max_wavelength);                                     % 波長の最大値の平均から光周波数に変換
-OpDiff_Min = 299792458 / mean(Min_wavelength);                                     % 波長の最小値の平均から光周波数に変換
 
 % 光周波数シフト量の算出 (推定値) (mode 1:三角波, mode 2:正弦波)
 if mode == 1
-    OpDiff_modConv = (OpDiff_Min - OpDiff_Max) / (180 / (180 - (BurstPhase - 90) * 2));  
+    OptDiff_modConv = (Max_OptFrequency - Min_OptFrequency) / (180 / (180 - (BurstPhase - 90) * 2));  
 end
 if mode == 2
-     OpDiff_modConv = (OpDiff_Min - OpDiff_Max) * sin(2 * (BurstPhase - 90) * pi / 180);
+    OptDiff_modConv = (Max_OptFrequency - Min_OptFrequency) * sin(2 * (BurstPhase - 90) * pi / 180);
 end
-disp('Optical Interpolation Amount [GHz]'); disp(OpDiff_modConv/1e9);                  % 光周波数シフト量を表示
+disp('Optical Interpolation Amount [GHz]'); disp(OptDiff_modConv/1e9);                  % 光周波数シフト量を表示
 
 
 %% データの保存 (emf 形式) ※保存先があっているか確認
@@ -195,7 +232,7 @@ if Judge == 1 || Judge == 2
     fprintf(fid, 'Center wavelength: %.6f nm \n', Center_wavelength*1e9);
     fprintf(fid, 'Center Frequency: %.6f THz \n', Fc/1e12);
     fprintf(fid, 'RF Interpolation amount: %.2f MHz \n', RFDiff/1e6);
-    fprintf(fid, 'Optical Interpolation amount: %.6f GHz \n\n', OpDiff_modConv/1e9);
+    fprintf(fid, 'Optical Interpolation amount: %.6f GHz \n\n', OptDiff_modConv/1e9);
     fclose(fid);                                                                  % ファイルを閉じる
 end
 
@@ -222,7 +259,6 @@ Y1 = dScaleFactor * (double(data) - dSampleZeroValue);                          
 
 figure
 plot(t,Y1)                                                                         % 参照光の時間軸波形の表示
-% title('Referenced Interferogram')
 xlabel('Time [μs]')                                                                % x軸ラベル
 ylabel('Field [a.u.]')                                                             % y軸ラベル
 ax = gca;                                                                          % 現在の座標軸の取得
@@ -251,7 +287,6 @@ Y2 = dScaleFactor * (double(data) - dSampleZeroValue);                          
 
 figure
 plot(t,Y2)                                                                         % 透過光の時間軸波形の表示
-% title('Transmitted Interferogram')
 xlabel('Time [μs]')                                                                % x軸ラベル
 ylabel('Field [a.u.]')                                                             % y軸ラベル
 ax = gca;                                                                          % 現在の座標軸の取得
@@ -316,7 +351,6 @@ xlim([72e6 88e6])                                             % x軸の表示範
 
 hold off
 
-% title('Not Smoothed RF Spectrum')                             % グラフのタイトル
 legend('Transmitted RF Spectrum','Referenced RF Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -355,7 +389,6 @@ ylim([1e1 1e4])                                               % y軸の表示範
 
 hold off
 
-% title('Smoothed RF Spectrum')                                 % グラフのタイトル
 legend('Transmitted RF Spectrum','Referenced RF Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -378,8 +411,6 @@ ax.XTickLabel = string(ax.XTick/1e6);                         % MHz表記に設�
 xlim([72e6 88e6])                                             % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-
-% title('RF Absorption')                               % グラフのタイトル
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 
@@ -405,8 +436,6 @@ ax.XTickLabel = string(ax.XTick/1e6);                         % MHz表記に設�
 xlim([72e6 88e6])                                             % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-
-% title('Noise masked RF Absorption')                           % グラフのタイトル
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 
@@ -457,13 +486,16 @@ disp(std_PeakDiff/1e6);                                                 % 標準
 
 %% 隣り合ったピーク間隔から光周波数シフト量を自動で算出
 % 4.1 設計した光周波数シフト量から隣り合った吸収線ピーク間隔の算出 (推定値)
-modConv_PeakDiff = abs(OpRep * RFDiff / OpDiff_modConv - RFRep);              % 推定値の大きさを「modConv_PeakDiff」として保存
+modConv_PeakDiff = abs(OpRep * RFDiff / OptDiff_modConv - RFRep);              % 推定値の大きさを「modConv_PeakDiff」として保存
 
 % 4.2.1 隣り合ったRF吸収線ピーク間隔の算出値の算出
 Prop_PeakDiff = mean(PeakDiff1);                                       % 隣り合った吸収線ピーク間隔の算出値を「Prop_PeakDiff」として保存
 
 % 4.2.2 RFピーク間隔の算出値を用いた光周波数シフト量の算出
-OpDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff +RFRep);                 % 算出値から算出した光周波数シフト量を「OpDiff_Prop」として保存
+OptDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff +RFRep);                 % 算出値から算出した光周波数シフト量を「OptDiff_Prop」として保存
+
+% 4.2.3 補正後の算出値を用いた光周波数シフト量の算出
+OptDiff_PropCorr = OptDiff_Prop - DiffOptFrequency;                 % 補正後の算出値から算出した光周波数シフト量を「OptDiff_PropCorr」として保存
 
 toc;
 
@@ -472,21 +504,21 @@ toc;
 % 事前準備1: 配列の初期化・事前割り当て (これをするとデータ処理時間が格段に速くなる)
 n = 35;
 RF_Center = zeros(1,n); OP_Center = zeros(1,n);
-B_modConv = zeros(1, n);    B_Prop = zeros(1, n);
+B_modConv = zeros(1, n);    B_Prop = zeros(1, n);   B_PropCorr = zeros(1, n);
 RFX1 = cell(n, 1); RFX2 = cell(n, 1); 
 RFY1 = cell(1, n); RFY2 = cell(1, n); 
-OPX1_modConv = cell(n, 1); OPX1_Prop = cell(n, 1); 
-OPX2_modConv = cell(n, 1); OPX2_Prop = cell(n, 1); 
-cutOPX1_modConv = cell(n, 1); cutOPX1_Prop = cell(n, 1);
-cutOPY1_modConv = cell(1, n); cutOPY1_Prop = cell(1, n);
-cutOPX2_modConv = cell(n, 1); cutOPX2_Prop = cell(n, 1);
-cutOPY2_modConv = cell(1, n); cutOPY2_Prop = cell(1, n);
+OPX1_modConv = cell(n, 1); OPX1_Prop = cell(n, 1); OPX1_PropCorr = cell(n, 1);
+OPX2_modConv = cell(n, 1); OPX2_Prop = cell(n, 1); OPX2_PropCorr = cell(n, 1);
+cutOPX1_modConv = cell(n, 1); cutOPX1_Prop = cell(n, 1); cutOPX1_PropCorr = cell(n, 1);
+cutOPY1_modConv = cell(1, n); cutOPY1_Prop = cell(1, n); cutOPY1_PropCorr = cell(1, n);
+cutOPX2_modConv = cell(n, 1); cutOPX2_Prop = cell(n, 1); cutOPX2_PropCorr = cell(n, 1);
+cutOPY2_modConv = cell(1, n); cutOPY2_Prop = cell(1, n); cutOPY2_PropCorr = cell(1, n);
 
 
 % 事前準備2: 算出したそれぞれのピーク間隔より算出した光周波数シフト量による倍率算出 (光周波数シフト量/RF周波数シフト量)
-A_modConv = OpDiff_modConv / RFDiff;                         % 波長計データから得られた推定値を用いた倍率の算出
-A_Prop = OpDiff_Prop / RFDiff;                         % 算出値を用いた倍率の算出
-
+A_modConv = OptDiff_modConv / RFDiff;                   % 波長計データから得られた推定値を用いた倍率の算出
+A_Prop = OptDiff_Prop / RFDiff;                         % 算出値を用いた倍率の算出
+A_PropCorr = OptDiff_PropCorr / RFDiff;                 % 補正後の倍率の算出
 %% 算出した倍率を用いて、RF領域から光領域へ自動で変換
 % 算出した倍率を用いてRF領域から光領域へ変換 ※スペクトル毎に変換式が異なるので注意
 for i = 1:n
@@ -496,6 +528,8 @@ for i = 1:n
     B_modConv(i) = B_modConv_temp;                                                               % 各RFコムスペクトルのオフセット周波数を「B_modConv」に格納
     B_Prop_temp = Fc + (OpRep * (i - 18)) - (A_Prop * (AOM + RFRep * (i - 18)));           % オフセット周波数の算出 (算出値)
     B_Prop(i) = B_Prop_temp;                                                               % 各RFコムスペクトルのオフセット周波数を「B_Prop」に格納
+    B_PropCorr_temp = Fc + (OpRep * (i - 18)) - (A_PropCorr * (AOM + RFRep * (i - 18)));           % オフセット周波数の算出 (補正後の算出値)
+    B_PropCorr(i) = B_PropCorr_temp;                                                               % 各RFコムスペクトルのオフセット周波数を「B_PropCorr」に格納
 
     % 5.1 RFコムの切り取り範囲の設定 (共通)
     RFmin = -RFDiff / 2 + RFc;                                              % RFコムスペクトルの中心から切り取る範囲の最小値
@@ -520,7 +554,11 @@ for i = 1:n
     OPX1_Prop{i} = OP1_Prop;                                                  % 「OPX1_modConv」に格納
     OP2_Prop = A_Prop .* cutf2 + B_Prop_temp;                                  % 光領域へ変換した透過光スペクトルの保存
     OPX2_Prop{i} = OP2_Prop;                                                  % 「OPX2_modConv」に格納
-    
+    OP1_PropCorr = A_PropCorr .* cutf1 + B_PropCorr_temp;                                  % 光領域へ変換した参照光スペクトルの保存
+    OPX1_PropCorr{i} = OP1_PropCorr;                                                  % 「OPX1_PropCorr」に格納
+    OP2_PropCorr = A_PropCorr .* cutf2 + B_PropCorr_temp;                                  % 光領域へ変換した透過光スペクトルの保存
+    OPX2_PropCorr{i} = OP2_PropCorr;                                                  % 「OPX2_PropCorr」に格納
+
     % 6.1 取得したEOコムスペクトルの中心周波数から光モード間隔分の切り取り
     OPFc = Fc + OpRep * (i - 18);                                   % EOコムスペクトルの中心周波数を算出
     OP_Center(i) = OPFc;                                            % 各EOコムスペクトルの中心周波数を「OP_Center」に格納
@@ -547,12 +585,22 @@ for i = 1:n
         cutOPX2_Prop{i} = X2_Prop;
         Y2_Prop = cutCombB(cutOP_Prop);
         cutOPY2_Prop{i} = Y2_Prop;
+        % 6.2.3 補正後の算出値
+        cutOP_PropCorr = (OPmin <= OP1_PropCorr) & (OP1_PropCorr < OPmax);     % 以下同様
+        X1_PropCorr = OP1_PropCorr(cutOP_PropCorr);
+        cutOPX1_PropCorr{i} = X1_PropCorr;
+        Y1_PropCorr = cutCombA(cutOP_PropCorr);
+        cutOPY1_PropCorr{i} = Y1_PropCorr;
+        X2_PropCorr = OP2_PropCorr(cutOP_PropCorr);
+        cutOPX2_PropCorr{i} = X2_PropCorr;
+        Y2_PropCorr = cutCombB(cutOP_PropCorr);
+        cutOPY2_PropCorr{i} = Y2_PropCorr;
 end
 
 toc;
 
 %% 光領域変換後のEOコムスペクトルの表示 (切り取り前・スムージング前後)
-% 7.1 スムージング前の切取前の光領域変換後のEOコムスペクトルの表示 (推定値)
+% 7.1 切取前の光領域変換後のEOコムスペクトルの表示 (推定値)
 figure
 for i = 1:n
     plot(OPX2_modConv{i}, abs(RFY2{i}), 'g', 'LineWidth', 1);
@@ -567,14 +615,13 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Optically Transformed EO-Comb Spectrum of Modified Conv. Method')  % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 hold off
 disp('modConv Peak Interval [MHz]'); disp(modConv_PeakDiff/1e6);      % 推定値の表示
 disp('Optical Interpolation of Modified Conv. Method [GHz]');
-disp(OpDiff_modConv/1e9);                                         % 推定値の光周波数シフト量の表示
+disp(OptDiff_modConv/1e9);                                         % 推定値の光周波数シフト量の表示
 
 % グラフの保存 (emf形式)
 if Judge == 1 || Judge == 2
@@ -598,7 +645,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Optically Transformed EO-Comb Spectrum of Modified Conv. Method')  % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -626,14 +672,13 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Optically Transformed EO-Comb Spectrum of Proposed Method')    % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 hold off
 disp('Prop. Peak Interval [MHz]'); disp(Prop_PeakDiff/1e6);      % 算出値の表示
 disp('Optical Interpolation of Proposed Method [GHz]');
-disp(OpDiff_Prop/1e9);                                         % 算出値から算出した光周波数シフト量の表示
+disp(OptDiff_Prop/1e9);                                         % 算出値から算出した光周波数シフト量の表示
 
 % グラフの保存 (emf形式)
 if Judge == 1 || Judge == 2
@@ -657,7 +702,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Optically Transformed EO-Comb Spectrum of Proposed Method')    % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -666,6 +710,61 @@ hold off
 % グラフの保存 (emf形式)
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_7.4 Smoothed EO-Comb Spectrum of Proposed Method.emf']), 'emf');
+end
+
+% 7.5 切取前の光領域変換後のEOコムスペクトルの表示 (補正後の算出値)
+figure
+for i = 1:n
+    plot(OPX2_PropCorr{i}, abs(RFY2{i}), 'g', 'LineWidth', 1);
+    hold on
+    plot(OPX1_PropCorr{i}, abs(RFY1{i}), 'r', 'LineWidth', 1);
+end
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Intensity [a.u.]')                                    % y軸ラベル
+set(gca, 'YScale', 'log');                                    % y軸を対数目盛に設定
+ylim([1e1 1e4])                                               % y軸の表示範囲の設定
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+hold off
+disp('Prop. Corr. Peak Interval [MHz]'); disp(Prop_PeakDiff/1e6);      % 補正後の算出値の表示
+disp('Optical Interpolation of Proposed Method with Correction [GHz]'); 
+disp(OptDiff_PropCorr/1e9);      % 補正後の算出値から算出した光周波数シフト量の表示
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_7.5 EO-Comb Spectrum of Corrected Proposed Method.emf']), 'emf');
+end
+
+% 7.6 スムージング後の切取前の光領域変換後のEOコムスペクトルの表示 (補正後の算出値)
+figure
+for i = 1:n
+    SmthRFY1 = movmean(abs(RFY1{i}), smth);                       % RF参照光スペクトルのスムージング処理
+    SmthRFY2 = movmean(abs(RFY2{i}), smth);                       % RF透過光スペクトルのスムージング処理
+    plot(OPX2_PropCorr{i}, SmthRFY2, 'g', 'LineWidth', 1);
+    hold on
+    plot(OPX1_PropCorr{i}, SmthRFY1, 'r', 'LineWidth', 1);
+end
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Intensity [a.u.]')                                    % y軸ラベル
+set(gca, 'YScale', 'log');                                    % y軸を対数目盛に設定
+ylim([1e1 1e4])                                               % y軸の表示範囲の設定
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+hold off
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_7.6 Smoothed EO-Comb Spectrum of Corrected Proposed Method.emf']), 'emf');
 end
 
 %% 測定したRF吸収線ピーク間隔・算出した光周波数シフト量をtxtファイルに書き込み・保存
@@ -678,7 +777,10 @@ if Judge == 1 || Judge == 2
     fprintf(fid, 'S.D. RF Peak Interval: %.6f MHz \n\n', std_PeakDiff/1e6);
     fprintf(fid, 'Modified Conv. Method_Optical Peak Interval: %.6f MHz \n', modConv_PeakDiff/1e6);
     fprintf(fid, 'Proposed Method_Optical Peak Interval: %.6f MHz \n', Prop_PeakDiff/1e6);
-    fprintf(fid, 'Proposed Method_Optical Interpolation amount: %.6f GHz \n\n', OpDiff_Prop/1e9);
+    fprintf(fid, 'Proposed Method_Optical Interpolation amount: %.6f GHz \n\n', OptDiff_Prop/1e9);
+    fprintf(fid, 'Difference between Wavelength Meter Measurement and Linear Fit: %.6f GHz \n', DiffOptFrequency/1e9);
+    fprintf(fid, 'Influence on Magnification factor: %.6f \n', DiffMagnification);
+    fprintf(fid, 'Corrected Proposed Method_Optical Interpolation amount: %.6f GHz \n\n', OptDiff_PropCorr/1e9);
     fclose(fid);                                                                  % ファイルを閉じる
 end
 
@@ -730,7 +832,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('After Cutting EO-Comb Spectrum of Modified Conv. Method')          % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -758,7 +859,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Smoothed After Cutting EO-Comb Spectrum of Modified Conv. Method')          % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -790,7 +890,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-% title('Optical Absorption of Modified Conv. Method')                      % グラフのタイトル
 legend('Measurement of Proposed Method','HITRAN')                     % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -855,7 +954,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('After Cutting EO-Comb Spectrum of Proposed Method')            % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -883,7 +981,6 @@ ax = gca;                                                     % 現在の座標�
 ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
 ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
-% title('Smoothed After Cutting EO-Comb Spectrum of Proposed Method')            % グラフのタイトル
 legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -917,7 +1014,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-% title('Optical Absorption of Proposed Method')                        % グラフのタイトル
 legend('Measurement of Proposed Method','HITRAN')                     % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -960,18 +1056,147 @@ end
 
 toc;
 
+%% 補正後の算出値
+% 8.3.1 スムージング前の切取後の光領域変換後のEOコムスペクトルの表示 (補正後の算出値)
+figure
+% Cell中のベクトルをすべて縦ベクトルに変換
+CX2_col = cellfun(@(v) v(:), cutOPX2_PropCorr, 'UniformOutput', false);
+CY2_col = cellfun(@(v) v(:), cutOPY2_PropCorr, 'UniformOutput', false);
+CX1_col = cellfun(@(v) v(:), cutOPX1_PropCorr, 'UniformOutput', false);
+CY1_col = cellfun(@(v) v(:), cutOPY1_PropCorr, 'UniformOutput', false);
+% 縦方向に連結し、1本のスペクトルの線にする
+CX2 = vertcat(CX2_col{:}); CY2 = vertcat(CY2_col{:});
+CX1 = vertcat(CX1_col{:}); CY1 = vertcat(CY1_col{:});
+% グラフの表示
+plot(CX2, abs(CY2), 'g', 'LineWidth', 1);
+hold on
+plot(CX1, abs(CY1), 'r', 'LineWidth', 1);
+
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Intensity [a.u.]')                                    % y軸ラベル
+set(gca, 'YScale', 'log');                                    % y軸を対数目盛に設定
+ylim([1e1 1e4])                                               % y軸の表示範囲の設定
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+
+hold off
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.1 Cutted EO-Comb Spectrum of Corrected Proposed Method.emf']), 'emf');
+end
+
+% 8.3.2 スムージング後の切取後の光領域変換後のEOコムスペクトルの表示 (算出値)
+SmthCY1 = movmean(abs(CY1), smth);                       % 参照光スペクトルのスムージング処理
+SmthCY2 = movmean(abs(CY2), smth);                       % 透過光スペクトルのスムージング処理
+figure
+plot(CX2, SmthCY2, 'g', 'LineWidth', 1);
+hold on
+plot(CX1, SmthCY1, 'r', 'LineWidth', 1);
+
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Intensity [a.u.]')                                    % y軸ラベル
+set(gca, 'YScale', 'log');                                    % y軸を対数目盛に設定
+ylim([1e1 1e4])                                               % y軸の表示範囲の設定
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+legend('Transmitted Optical Spectrum','Referenced Optical Spectrum')    % 凡例
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+
+hold off
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.2 Smoothed Cut EO-Comb Spectrum of Corrected Proposed Method.emf']), 'emf');
+    if Judge == 2
+        writetable(table(CX2(:), CY2(:)), fullfile(TxtFolder, [Name, '_CombB_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(CX1(:), CY1(:)), fullfile(TxtFolder, [Name, '_CombA_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+    end
+end
+
+% 8.3.3 吸収スペクトルの取得及び表示、HITRANとの比較 (算出値)
+Absorption_PropCorr = CY2 ./ CY1;                                  % 透過率の算出
+% 吸収スペクトルのスムージング処理
+Absorption_PropCorr = movmean(abs(Absorption_PropCorr), smth);                       % 吸収スペクトルのスムージング処理
+
+figure
+plot(CX1, Absorption_PropCorr, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
+hold on
+plot(HITRAN_X, HITRAN_Y, '--g', 'LineWidth', 1);              % HITRANの表示 (破線)
+
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Transmittance [a.u.]')                                % y軸ラベル
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+ylim([0.4 1.4])                                               % y軸の表示範囲の設定
+yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
+legend('Measurement of Proposed Method','HITRAN')                     % 凡例
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.3 Optical Absorption of Corrected Proposed Method.emf']), 'emf');
+    if Judge == 2
+        writetable(table(CX1(:), Absorption_PropCorr(:)), fullfile(TxtFolder, [Name, '_OptAbsorption_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+    end
+end
+
+%% ピーク位置の検出 (算出値)
+% 8.3.4 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
+[PeakAbsorption_PropCorr, PeakLocation_PropCorr] = findpeaks(-Absorption_PropCorr, CX1, 'MinPeakDistance', OPminPeakDistance);
+PeakAbsorption_PropCorr = -PeakAbsorption_PropCorr;                                   % 反転したデータを元に戻す
+idx = PeakAbsorption_PropCorr < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+PeakLocation_PropCorr = PeakLocation_PropCorr(idx);                                  % 除去後のx軸に上書き
+PeakAbsorption_PropCorr = PeakAbsorption_PropCorr(idx);                              % 除去後のy軸に上書き
+
+% HITRANとサイズが異なる場合に、サイズの小さい方に合わせる
+if length(Peak_HITRAN_X) ~= length(PeakLocation_PropCorr)
+    MinLen = min(length(Peak_HITRAN_X), length(PeakLocation_PropCorr));
+    Peak_HITRAN_X = Peak_HITRAN_X(1:MinLen);
+    Peak_HITRAN_Y = Peak_HITRAN_Y(1:MinLen);
+    PeakLocation_PropCorr = PeakLocation_PropCorr(1:MinLen);
+    PeakAbsorption_PropCorr = PeakAbsorption_PropCorr(1:MinLen);
+end
+
+plot(Peak_HITRAN_X, Peak_HITRAN_Y, 'bv', 'MarkerFaceColor', 'c');           % HITRANのピーク位置に谷(シアン)でプロット
+plot(PeakLocation_PropCorr, PeakAbsorption_PropCorr, 'bv', 'MarkerFaceColor', 'm');   % 最終的に検出した吸収線ピークを谷(マゼンタ)でプロット
+legend('Measurement of Proposed Method','HITRAN')                                   % 凡例
+
+hold off
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.4 Peak Plotted Optical Absorption of Corrected Proposed Method.emf']), 'emf');
+end
+
+toc;
 %% 取得データとHITRANのピーク間隔の差分の測定 / 比較・標準偏差の算出
 % HITRANと取得した吸収線ピーク位置の残差の算出及び表示
 PeakRes_HITRAN_AX = abs(Peak_HITRAN_X(1:end).' - PeakLocation_modConv(1:end).');                    % HITRANと推定値とのピーク位置の差分の算出
 PeakRes_HITRAN_BX = abs(Peak_HITRAN_X(1:end).' - PeakLocation_Prop(1:end).');                    % HITRANと算出値とのピーク位置の差分の算出
+PeakRes_HITRAN_CX = abs(Peak_HITRAN_X(1:end).' - PeakLocation_PropCorr(1:end).');                    % HITRANと補正後の算出値とのピーク位置の差分の算出
 disp('Peak Residual Between HITRAN and modConv. [GHz]'); disp(PeakRes_HITRAN_AX/1e9);
 disp('Peak Residual Between HITRAN and Prop. [GHz]'); disp(PeakRes_HITRAN_BX/1e9);
+disp('Peak Residual Between HITRAN and PropCorr. [GHz]'); disp(PeakRes_HITRAN_CX/1e9);
 
 % 標準偏差の算出及び表示 (ここ大事)
 PeakRes_HITRAN_AX_SD = std(PeakRes_HITRAN_AX);
 PeakRes_HITRAN_BX_SD = std(PeakRes_HITRAN_BX);
+PeakRes_HITRAN_CX_SD = std(PeakRes_HITRAN_CX);
 disp('S.D. Peak Residual Between HITRAN and modConv. [GHz]'); disp(PeakRes_HITRAN_AX_SD/1e9);
 disp('S.D. Peak Residual Between HITRAN and Prop. [GHz]'); disp(PeakRes_HITRAN_BX_SD/1e9);
+disp('S.D. Peak Residual Between HITRAN and PropCorr. [GHz]'); disp(PeakRes_HITRAN_CX_SD/1e9);
 
 toc;
 
@@ -984,18 +1209,14 @@ if Judge == 1 || Judge == 2
     fprintf(fid, 'Peak Residual Between HITRAN and Modified Conv. Method [GHz]: '); fprintf(fid, ' %.4f ', PeakRes_HITRAN_AX/1e9);
     fprintf(fid, '\n');
     fprintf(fid, 'Peak Residual Between HITRAN and Proposed Method [GHz]:       '); fprintf(fid, ' %.4f ', PeakRes_HITRAN_BX/1e9);
+    fprintf(fid, '\n');
+    fprintf(fid, 'Peak Residual Between HITRAN and Corrected Proposed Method [GHz]: '); fprintf(fid, ' %.4f ', PeakRes_HITRAN_CX/1e9);
     fprintf(fid, '\n\n');
     fprintf(fid, 'S.D. Peak Residual Between HITRAN and Modified Conv. Method: %.6f GHz \n', PeakRes_HITRAN_AX_SD/1e9);
     fprintf(fid, 'S.D. Peak Residual Between HITRAN and Proposed Method:       %.6f GHz \n', PeakRes_HITRAN_BX_SD/1e9);
+    fprintf(fid, 'S.D. Peak Residual Between HITRAN and Corrected Proposed Method: %.6f GHz \n', PeakRes_HITRAN_CX_SD/1e9);
     fclose(fid);                                                                  % ファイルを閉じる
 end
-
-% %% 吸収スペクトルのスムージング処理 (必要であればコメント化解除して使用)
-% % スムージング処理 (やり過ぎると分解能が下がるので注意)
-% Absorption_modConv = movmean(abs(Absorption_modConv), smth); %/A_modConv);
-% Absorption_Prop = movmean(abs(Absorption_Prop), smth); %/A_Prop);
-
-% toc;
 
 %% 吸収スペクトルのベースライン補正
 % 参照光・透過光スペクトル強度の不均一さによって生じるベースラインの傾きを補正する
@@ -1006,7 +1227,7 @@ PeakRange = 15e9;       % ±範囲
 % 配列の初期化・事前割り当て
 Basemask_modConv = true(size(AX1));
 Basemask_Prop = true(size(BX1));
-
+Basemask_PropCorr = true(size(CX1));
 %% 切り取る吸収線範囲を破線で表示
 % 推定値 (波長計で測定した光周波数シフト量)
 % 9.1 切り取る吸収線範囲を破線で表示 (推定値)
@@ -1033,7 +1254,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.9 1.2])                                               % y軸の表示範囲の設定
 yticks(0.9:0.1:1.2)                                           % y軸のメモリ設定
-% title('Mask Range of Modified Conv. Method')                              % グラフのタイトル
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 
@@ -1070,7 +1290,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.9 1.2])                                               % y軸の表示範囲の設定
 yticks(0.9:0.1:1.2)                                           % y軸のメモリ設定
-% title('Mask Range of Proposed Method')                                % グラフのタイトル
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
 
@@ -1079,6 +1298,42 @@ hold off
 % グラフの保存 (emf形式)
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_9.2 Mask Range of Proposed Method.emf']), 'emf');
+end
+
+%% 補正後の算出値
+% 9.3 切り取る吸収線範囲を破線で表示 (補正後の算出値)
+figure
+plot(CX1, Absorption_PropCorr, 'r', 'LineWidth', 1);               % 測定結果の表示 (実線)
+hold on
+
+for i = 1:length(PeakLocation_PropCorr)
+    % マスクする吸収線の存在範囲を設定
+    PeakRangeStart_PropCorr = PeakLocation_PropCorr(i) - PeakRange / 2;
+    PeakRangeEnd_PropCorr = PeakLocation_PropCorr(i) + PeakRange / 2;
+
+    Basemask_PropCorr = Basemask_PropCorr & ((CX1 <= PeakRangeStart_PropCorr) | (PeakRangeEnd_PropCorr <= CX1));
+
+    % 吸収線ピークの範囲をプロット
+    xline(PeakRangeStart_PropCorr, 'g--', 'LineWidth', 0.5);       % 開始位置を赤い破線で表示
+    xline(PeakRangeEnd_PropCorr, 'g--', 'LineWidth', 0.5);         % 終了位置を赤い破線で表示
+end
+
+xlabel('Frequency [THz]')                                     % x軸ラベル
+ylabel('Transmittance [a.u.]')                                % y軸ラベル
+ax = gca;                                                     % 現在の座標軸の取得 
+ax.XTick = 195.2e12:0.2e12:196.2e12;                          % 座標軸の取得範囲の設定 (始点:間隔:終点)
+ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設定 (10^12 部分を削除)
+xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
+ylim([0.9 1.2])                                               % y軸の表示範囲の設定
+yticks(0.9:0.1:1.2)                                           % y軸のメモリ設定
+fontsize(20,"points")                                         % フォントサイズの設定
+fontname("Times New Roman")                                   % フォント名の設定
+
+hold off
+
+% グラフの保存 (emf形式)
+if Judge == 1 || Judge == 2
+    saveas(gcf, fullfile(EmfFolder, [Name, '_9.3 Mask Range of Corrected Proposed Method.emf']), 'emf');
 end
 
 %% 吸収線部分をマスクし、ベースラインのみを残す
@@ -1168,7 +1423,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.9 1.2])                                               % y軸の表示範囲の設定
 yticks(0.9:0.1:1.2)                                           % y軸のメモリ設定
-% title('Baseline of Modified Conv. Method')                                % グラフのタイトル
 legend('Baseline of Modified Conv. Method','Polynomial Trendline')        % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -1197,7 +1451,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.9 1.2])                                               % y軸の表示範囲の設定
 yticks(0.9:0.1:1.2)                                           % y軸のメモリ設定
-% title('Baseline of Proposed Method')                                  % グラフのタイトル
 legend('Baseline of Proposed Method','Polynomial Trendline')          % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -1232,7 +1485,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-% title('Baseline Corrected Optical Absorption of Modified Conv. Method')   % グラフのタイトル
 legend('Corrected Measurement of Modified Conv. Method','HITRAN')         % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
@@ -1287,7 +1539,6 @@ ax.XTickLabel = string(ax.XTick/1e12);                        % THz表記に設�
 xlim([195.2e12 196.2e12])                                     % x軸の表示範囲の設定
 ylim([0.4 1.4])                                               % y軸の表示範囲の設定
 yticks(0.4:0.2:1.4)                                           % y軸のメモリ設定
-% title('Baseline Corrected Optical Absorption of Proposed Method')     % グラフのタイトル
 legend('Corrected Measurement of Proposed Method','HITRAN')           % 凡例
 fontsize(20,"points")                                         % フォントサイズの設定
 fontname("Times New Roman")                                   % フォント名の設定
