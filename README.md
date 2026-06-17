@@ -12,7 +12,7 @@ Mail: 25kmh28@ms.dendai.ac.jp (学校用) / yuma.0706.1510111@outlook.jp (個人
 - [免責事項](#免責事項)
   
 **New**
-- [（発展）MATLAB で Bin データ 及び 波長計 txt データの同時取得](#（発展）MATLABでBinデータ及び波長計txtデータの同時取得)
+- [MATLAB で Bin データ 及び 波長計 txt データの同時取得](#MATLABでBinデータ及び波長計txtデータの同時取得)
 
 ## 内容
 MathWorks社が提供するMATLABを用いて, データ処理からグラフ表示までを一括して行うプログラムを構築します.
@@ -212,7 +212,7 @@ Mathematica とは, Wolfram Research社が開発した技術計算システム�
 本リポジトリの内容は予告なく変更，削除されることがありますので，あらかじめご了承ください．
 
 
-## （発展）MATLABでBinデータ及び波長計txtデータの同時取得
+## MATLABでBinデータ及び波長計txtデータの同時取得
 
 ## 目次
 - [概要](#概要)
