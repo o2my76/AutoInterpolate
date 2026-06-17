@@ -4,12 +4,12 @@
 Mail: 25kmh28@ms.dendai.ac.jp (学校用) / yuma.0706.1510111@outlook.jp (個人用)
 
 ## 目次
-1. [内容](#内容)
-2. [プログラムに必要なもの](#プログラムに必要なもの)
-3. [データ処理プログラムの解説](#データ処理プログラムの解説)
-4. [その他のソフトウェアについて](#その他のソフトウェアについて) <br>
-   4.1 [HITRANによる混合ガスの透過率スペクトル取得方法について](#HITRANによる混合ガスの透過率スペクトル取得方法について)
-5. [免責事項](#免責事項)
+- [内容](#内容)
+- [プログラムに必要なもの](#プログラムに必要なもの)
+- [データ処理プログラムの解説](#データ処理プログラムの解説)
+- [その他のソフトウェアについて](#その他のソフトウェアについて) <br>
+   - [HITRANによる混合ガスの透過率スペクトル取得方法について](#HITRANによる混合ガスの透過率スペクトル取得方法について)
+- [免責事項](#免責事項)
 
 ## 内容
 MathWorks社が提供するMATLABを用いて, データ処理からグラフ表示までを一括して行うプログラムを構築します.
@@ -200,9 +200,39 @@ Mathematica とは, Wolfram Research社が開発した技術計算システム�
 > 保存した .txtファイルの横軸は波数なので, 光周波数に換算する場合は横軸に **29979245800** を掛けてください.
 
 
-## (発展) MATLAB で Bin データ 及び 波長計 txt データの同時取得
+# MATLAB で Bin データ 及び 波長計 txt データの同時取得（発展）
 
-### 概要
+## 目次
+- [概要](#概要)
+- [動作環境](#動作環境)
+- [測定条件](#測定条件)
+- [ファイル構成](#ファイル構成)
+  - [ATS9360 関連](#ats9360-関連)
+  - [WS-7 関連](#ws-7-関連)
+- [ATS9360関連ファイルの役割](#ats9360関連ファイルの役割)
+  - [メインプログラム](#メインプログラム)
+  - [ライブラリ関連](#ライブラリ関連)
+  - [ボード認識関連](#ボード認識関連)
+  - [クロック設定関連](#クロック設定関連)
+  - [入力設定関連](#入力設定関連)
+  - [トリガ設定関連](#トリガ設定関連)
+  - [レコード設定関連](#レコード設定関連)
+  - [AutoDMA関連](#autodma関連)
+  - [通常取得および状態確認関連](#通常取得および状態確認関連)
+  - [パラメータおよび機能確認関連](#パラメータおよび機能確認関連)
+  - [補助関数](#補助関数)
+  - [特殊機能関連](#特殊機能関連)
+  - [DSPおよびFFT関連](#dspおよびfft関連)
+- [WS-7関連ファイルの役割](#ws-7関連ファイルの役割)
+  - [本測定用プログラム](#本測定用プログラム-1)
+  - [MATLABサンプルコード](#matlabサンプルコード)
+  - [MEX関連](#mex関連)
+  - [ライブラリおよびAPI定義](#ライブラリおよびapi定義)
+  - [主要API関数](#主要api関数)
+  - [本測定における使用状況](#本測定における使用状況)
+- [著作権及びライセンス](#著作権及びライセンス)
+
+## 概要
 本プログラムは, ATS-SDK を用いた AlazarTech PCI Digitizer ATS9360 による時間波形の取得と, HighFinesse WS-7 を用いた波長記録を MATLAB 上で並行して実行するためのものです.
 
 ATS9360では, 外部トリガを用いて Channel A 及び Channel B の時間波形を取得します. <br>
@@ -217,7 +247,7 @@ WS-7では, HighFinesse 社 が提供する`wlmData` APIを利用し, 新しい�
 >
 >ATS-SDK 及び関連ファイルについては, AlazarTech の公式サイトから利用条件を確認したうえで取得してください.
 
-### 動作環境
+## 動作環境
 - MATLAB R2026a 以降
 - [AlazarTech ATS-SDK](https://github.com/user-attachments/files/29046647/ATS-SDK-Guide.pdf)
 - [AlazarTech ATS9360](https://github.com/user-attachments/files/29046689/ATS9360.User.Manual_V1_0_Complete.pdf)
@@ -227,7 +257,7 @@ WS-7では, HighFinesse 社 が提供する`wlmData` APIを利用し, 新しい�
 - HighFinesse WS-7
 - [HighFinesse Wavelength Meter software](https://www.highfinesse.com/en/howto/tutorial/Control_Wavemeter_Own_Application_EN.pdf)
 
-### 測定条件
+## 測定条件
 本プログラムでは, 以下の条件でデータを取得します.
 
 | 項目 | 設定 |
@@ -248,10 +278,10 @@ WS-7では, HighFinesse 社 が提供する`wlmData` APIを利用し, 新しい�
 | ATS9360 出力 | Two Bin files |
 | WS-7 出力 | Tab-delimited txt |
 
-### ファイル構成
+## ファイル構成
 ファイルは, 役割に応じて以下のように分類できます.
 
-ATS9360 関連
+### ATS9360 関連
 ```text
 ATS9360_NPT_StreamToMemory.m
 AlazarDefs.m
@@ -282,10 +312,9 @@ errorToText.m
 boardTypeIdToText.m
 inputRangeIdToVolts.m
 ```
-WS-7 関連
+### WS-7 関連
 ```
 recordWS7External.m
-test.m
 simple_calls.m
 fast_readout.m
 longterm.m
@@ -299,6 +328,227 @@ wlm_constants.m
 wlm_constants.mat
 wlmData.dll
 ```
+
+## ATS9360関連ファイルの役割
+
+### メインプログラム
+
+| ファイル | 役割 |
+|---|---|
+| `ATS9360_NPT_StreamToMemory.m` | ATS9360の初期化, 測定条件設定, NPT AutoDMA取得, CHAとCHBの分離, BIN保存, WS-7記録制御を行うメインプログラム. |
+
+### ライブラリ関連
+
+| ファイル | 役割 |
+|---|---|
+| `alazarLoadLibrary.m` | `ATSApi.dll`をMATLABへ読み込む. |
+| `AlazarInclude_pcwin64.m` | `ATSApi.dll`に含まれる関数の引数型, 戻り値, ポインタ型をMATLABへ定義する. |
+| `ATSApi_thunk_pcwin64.dll` | MATLABと`ATSApi.dll`の間でデータ型やポインタを変換する. |
+| `ATSApi_thunk_pcwin64.lib` | Thunk DLLを生成またはリンクするときに使用する. |
+| `AlazarDefs.m` | チャンネル, クロック, 入力レンジ, トリガ, AutoDMAなどの定数を定義する. |
+
+### ボード認識関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarGetBoardBySystemID.m` | システム番号とボード番号から操作対象ボードのハンドルを取得する. |
+| `AlazarGetBoardBySystemHandle.m` | システムハンドルから指定ボードのハンドルを取得する. |
+| `AlazarGetSystemHandle.m` | 指定したAlazarシステムのハンドルを取得する. |
+| `AlazarGetBoardKind.m` | 接続されているボードの機種IDを取得する. |
+| `AlazarGetChannelInfo.m` | ボードメモリ容量とADCのビット数を取得する. |
+| `AlazarNumOfSystems.m` | PCに認識されているAlazarシステム数を取得する. |
+| `AlazarBoardsFound.m` | PCに認識されているAlazarボードの総数を取得する. |
+| `AlazarBoardsInSystemBySystemID.m` | 指定したシステム内のボード数を取得する. |
+| `AlazarBoardsInSystemByHandle.m` | システムハンドルからボード数を取得する. |
+
+### クロック設定関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarSetCaptureClock.m` | クロック源, サンプリングレート, クロックエッジ, デシメーションを設定する. |
+| `AlazarSetExternalClockLevel.m` | 外部クロック使用時の判定レベルを設定する. |
+
+### 入力設定関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarInputControl.m` | 入力チャンネルの結合方式, 入力レンジ, インピーダンスを設定する. |
+| `AlazarInputControlEx.m` | 32-bitチャンネル指定に対応した入力設定を行う. |
+| `AlazarSetBWLimit.m` | 各入力チャンネルのアナログ帯域制限を設定する. |
+
+### トリガ設定関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarSetTriggerOperation.m` | トリガ源, トリガエッジ, トリガレベル, トリガエンジンを設定する. |
+| `AlazarSetExternalTrigger.m` | 外部トリガ端子の結合方式と入力レンジを設定する. |
+| `AlazarSetTriggerDelay.m` | トリガ検出後から取得開始までの遅延をサンプル数で設定する. |
+| `AlazarSetTriggerTimeOut.m` | トリガを待機する時間を設定する. |
+| `AlazarTriggered.m` | トリガが検出されたかを確認する. |
+| `AlazarForceTrigger.m` | ソフトウェアから強制的にトリガを発生させる. |
+| `AlazarForceTriggerEnable.m` | 強制トリガ機能を有効にする. |
+| `AlazarConfigureAuxIO.m` | AUX I/O端子をトリガ出力などに設定する. |
+
+### レコード設定関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarSetRecordSize.m` | 1レコードのトリガ前サンプル数とトリガ後サンプル数を設定する. |
+| `AlazarSetRecordCount.m` | 1回の取得で記録するレコード数を設定する. |
+| `AlazarGetMaxRecordsCapable.m` | 指定したレコード長で取得可能な最大レコード数を取得する. |
+
+### AutoDMA関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarBeforeAsyncRead.m` | 取得チャンネル, レコード長, レコード数, AutoDMAモードを設定する. |
+| `AlazarAllocBuffer.m` | DMA転送用のページ境界整列メモリを確保する. |
+| `AlazarPostAsyncBuffer.m` | 確保したDMAバッファをATS9360へ登録する. |
+| `AlazarStartCapture.m` | ATS9360を取得開始または外部トリガ待機状態にする. |
+| `AlazarWaitAsyncBufferComplete.m` | 指定したDMAバッファへの転送完了を待機する. |
+| `AlazarWaitNextAsyncBufferComplete.m` | SDK管理方式で次のDMAバッファの転送完了を待機する. |
+| `AlazarAbortAsyncRead.m` | AutoDMA取得を終了する. |
+| `AlazarFreeBuffer.m` | 確保したDMAバッファを解放する. |
+
+### 通常取得および状態確認関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarRead.m` | ボード内部メモリから指定レコードを読み出す. |
+| `AlazarAbortCapture.m` | 通常のデータ取得を停止する. |
+| `AlazarBusy.m` | ボードが取得中かを確認する. |
+| `AlazarGetStatus.m` | ボードの現在状態を取得する. |
+| `AlazarResetTimeStamp.m` | ボード内部のタイムスタンプカウンタをリセットする. |
+| `AlazarGetTriggerAddress.m` | トリガ位置とタイムスタンプ情報を取得する. |
+| `AlazarGetTriggerTimestamp.m` | 指定レコードのトリガタイムスタンプを取得する. |
+
+### パラメータおよび機能確認関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarGetParameter.m` | 符号付き内部パラメータを取得する. |
+| `AlazarGetParameterUL.m` | 符号なし32-bit内部パラメータを取得する. |
+| `AlazarSetParameter.m` | 符号付き内部パラメータを設定する. |
+| `AlazarSetParameterUL.m` | 符号なし32-bit内部パラメータを設定する. |
+| `AlazarQueryCapability.m` | PCIe速度, ボード機能, 対応能力などを問い合わせる. |
+| `AlazarGetDriverVersion.m` | デバイスドライバのバージョンを取得する. |
+| `AlazarGetSDKVersion.m` | ATS-SDKのバージョンを取得する. |
+| `AlazarGetBoardRevision.m` | ボードのハードウェアリビジョンを取得する. |
+| `AlazarGetFPGAVersion.m` | FPGAのバージョンを取得する. |
+| `AlazarGetCPLDVersion.m` | CPLDのバージョンを取得する. |
+| `AlazarSetLED.m` | ボード上のLEDを点灯または消灯する. |
+| `AlazarSleepDevice.m` | ボードを省電力状態へ移行する. |
+
+### 補助関数
+
+| ファイル | 役割 |
+|---|---|
+| `errorToText.m` | ATS-SDKのエラーコードを説明文へ変換する. |
+| `AlazarErrorToText.m` | ATSApiのエラー文字列取得関数を呼び出す. |
+| `boardTypeIdToText.m` | ボード機種IDを`ATS9360`などの文字列へ変換する. |
+| `inputRangeIdToVolts.m` | 入力レンジIDを実際の電圧値へ変換する. |
+| `AlazarHyperDisp.m` | 大容量波形を表示用に縮小する. |
+
+### 特殊機能関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarConfigureRecordAverage.m` | 複数レコードをボード上で平均化する. |
+| `AlazarConfigureSampleSkipping.m` | 指定したサンプルだけを選択して取得する. |
+| `AlazarCreateStreamFile.m` | ストリーミングデータの保存先ファイルを作成する. |
+| `AlazarOCTIgnoreBadClock.m` | OCT用途で不安定な外部クロック区間を処理する. |
+| `AlazarCoprocessorDownload.m` | コプロセッサへ設定データをロードする. |
+| `AlazarCoprocessorRegisterRead.m` | コプロセッサのレジスタを読み出す. |
+| `AlazarCoprocessorRegisterWrite.m` | コプロセッサのレジスタへ値を書き込む. |
+| `AlazarExtractNPTFootersEx.m` | NPT取得データから付加情報を抽出する. |
+
+### DSPおよびFFT関連
+
+| ファイル | 役割 |
+|---|---|
+| `AlazarDSPGetModules.m` | ボード上で利用可能なDSPモジュール一覧を取得する. |
+| `AlazarDSPGetModuleByID.m` | 指定IDのDSPモジュールハンドルを取得する. |
+| `AlazarDSPGetInfo.m` | DSPモジュールの情報を取得する. |
+| `AlazarDSPGetBuffer.m` | DSP処理後のデータバッファを取得する. |
+| `AlazarDSPGetNextBuffer.m` | 次のDSP処理済みバッファを取得する. |
+| `AlazarDSPAbortCapture.m` | DSPを使用した取得を停止する. |
+| `AlazarDSPGenerateWindowFunction.m` | FFT処理用の窓関数を生成する. |
+| `AlazarFFTSetup.m` | ボード上FFTの条件を設定する. |
+| `AlazarFFTSetWindowFunction.m` | FFT用の窓関数を設定する. |
+| `AlazarFFTSetGainAndOffset.m` | FFT出力のゲインとオフセットを設定する. |
+| `AlazarFFTSetScalingAndSlicing.m` | FFT出力のスケーリングとビット切り出しを設定する. |
+| `AlazarFFTGetMaxTriggerRepeatRate.m` | FFT条件に対する最大トリガ繰返し周波数を取得する. |
+| `AlazarFFTBackgroundSubtractionSetEnabled.m` | FFT背景減算機能を有効または無効にする. |
+| `AlazarFFTBackgroundSubtractionSetRecordS16.m` | FFT背景減算用データを設定する. |
+| `AlazarFFTBackgroundSubtractionGetRecordS16.m` | FFT背景減算用データを取得する. |
+
+## WS-7関連ファイルの役割
+
+### 本測定用プログラム
+
+| ファイル | 役割 |
+|---|---|
+| `recordWS7External.m` | 別MATLABプロセスでWS-7の波長を連続取得し, 停止ファイルが作成されるまで記録を継続する. |
+
+### MATLABサンプルコード
+
+| ファイル | 役割 |
+|---|---|
+| `simple_calls.m` | `calllib`を使用してバージョン, 温度, 圧力, チャンネル数, 露光時間, 光周波数, 波長を取得する基本例. |
+| `fast_readout.m` | `WaitForWLMEvent`を使用し, 新しい波長イベントごとにタイムスタンプと波長を取得する高速読み出し例. |
+| `longterm.m` | WS-7の測定値を長時間記録し, MATLAB上でリアルタイム表示するGUI処理. |
+| `longterm.fig` | `longterm.m`で使用するGUIの画面配置, グラフ領域, メニュー, UI部品を保存する. |
+| `compile_and_call.m` | C++コードをMEXファイルへコンパイルし, MATLABから実行する手順を示す. |
+
+### MEX関連
+
+| ファイル | 役割 |
+|---|---|
+| `wlmRecordWavelengths.cpp` | `wlmData.dll`のコールバック機能をC++から使用し, 波長とタイムスタンプを高速取得する. |
+| `wlmRecordWavelengths.mexw64` | `wlmRecordWavelengths.cpp`を64-bit Windows用にコンパイルしたMATLAB実行形式. |
+| `wlmData.lib` | C++コードやMEXファイルを`wlmData.dll`へリンクするために使用する. |
+
+### ライブラリおよびAPI定義
+
+| ファイル | 役割 |
+|---|---|
+| `wlmData.dll` | Wavelength Meterソフトウェアが保持する測定値や設定を外部プログラムへ提供する. |
+| `wlmData.h` | `wlmData.dll`に含まれる関数, 引数型, 戻り値, ポインタ型, 定数を定義する. |
+| `wlm_constants.m` | `wlmData.h`に含まれる定数をMATLAB変数として定義する. |
+| `wlm_constants.mat` | API定数をMATLAB構造体として読み込める形式で保存する. |
+
+### 主要API関数
+
+| 関数 | 役割 |
+|---|---|
+| `Instantiate` | Wait Event方式やコールバック方式などの通知機構を設定または解除する. |
+| `WaitForWLMEvent` | 新しい測定イベントが発生するまで待機し, イベント種別と測定値を取得する. |
+| `GetWavelengthNum` | 指定チャンネルの最新波長を取得する. |
+| `GetFrequencyNum` | 指定チャンネルの最新光周波数を取得する. |
+| `GetExposureNum` | 指定チャンネルの露光時間を取得する. |
+| `GetTemperature` | 波長計内部の温度を取得する. |
+| `GetPressure` | 波長計が使用する気圧値を取得する. |
+| `GetChannelsCount` | 使用可能な測定チャンネル数を取得する. |
+| `GetWLMVersion` | Wavelength Meterソフトウェアや装置のバージョン情報を取得する. |
+
+### 本測定における使用状況
+
+| ファイル | 使用状況 |
+|---|---|
+| `recordWS7External.m` | 本測定で直接使用する. |
+| `wlmData.dll` | 本測定で直接使用する. |
+| `wlmData.h` | 本測定で直接使用する. |
+| `wlm_constants.mat` | 本測定で直接使用する. |
+| `fast_readout.m` | `WaitForWLMEvent`実装の参考として使用する. |
+| `simple_calls.m` | 基本API呼び出しの参考として使用する. |
+| `test.m` | DLL接続と単発測定の確認に使用する. |
+| `longterm.m` | 長時間記録GUIの参考として使用する. |
+| `longterm.fig` | GUI構成の参考として使用する. |
+| `compile_and_call.m` | 本測定では使用しない. |
+| `wlmRecordWavelengths.cpp` | 本測定では使用しない. |
+| `wlmRecordWavelengths.mexw64` | 本測定では使用しない. |
+| `wlmData.lib` | 本測定では使用しない. |
+| `wlm_constants.m` | API定数の確認用として参照する. |
 
 > [!NOTE]
 > 上記の一部ファイルはAlazarTech ATS-SDKに含まれるラッパー関数およびライブラリ関連ファイルです.
