@@ -218,9 +218,6 @@ Mathematica とは, Wolfram Research社が開発した技術計算システム�
 - [概要](#概要)
 - [動作環境](#動作環境)
 - [測定条件](#測定条件)
-- [ファイル構成](#ファイル構成)
-  - [ATS9360 関連](#ats9360-関連)
-  - [WS-7 関連](#ws-7-関連)
 - [ATS9360関連ファイルの役割](#ats9360関連ファイルの役割)
   - [メインプログラム](#メインプログラム)
   - [ライブラリ関連](#ライブラリ関連)
@@ -289,57 +286,6 @@ WS-7では, HighFinesse 社 が提供する`wlmData` APIを利用し, 新しい�
 | 転送回数 | 1 |
 | ATS9360 出力 | Two Bin files |
 | WS-7 出力 | Tab-delimited txt |
-
-## ファイル構成
-ファイルは, 役割に応じて以下のように分類できます.
-
-### ATS9360 関連
-```text
-ATS9360_NPT_StreamToMemory.m
-AlazarDefs.m
-alazarLoadLibrary.m
-AlazarInclude_pcwin64.m
-ATSApi_thunk_pcwin64.dll
-ATSApi_thunk_pcwin64.lib
-AlazarGetBoardBySystemID.m
-AlazarGetBoardKind.m
-AlazarGetChannelInfo.m
-AlazarSetCaptureClock.m
-AlazarInputControlEx.m
-AlazarSetBWLimit.m
-AlazarSetExternalTrigger.m
-AlazarSetTriggerOperation.m
-AlazarSetTriggerDelay.m
-AlazarSetTriggerTimeOut.m
-AlazarConfigureAuxIO.m
-AlazarSetRecordSize.m
-AlazarBeforeAsyncRead.m
-AlazarAllocBuffer.m
-AlazarPostAsyncBuffer.m
-AlazarStartCapture.m
-AlazarWaitAsyncBufferComplete.m
-AlazarAbortAsyncRead.m
-AlazarFreeBuffer.m
-errorToText.m
-boardTypeIdToText.m
-inputRangeIdToVolts.m
-```
-### WS-7 関連
-```
-recordWS7External.m
-simple_calls.m
-fast_readout.m
-longterm.m
-longterm.fig
-compile_and_call.m
-wlmRecordWavelengths.cpp
-wlmRecordWavelengths.mexw64
-wlmData.h
-wlmData.lib
-wlm_constants.m
-wlm_constants.mat
-wlmData.dll
-```
 
 ## ATS9360関連ファイルの役割
 
