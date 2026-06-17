@@ -141,7 +141,6 @@ Mathematica とは, Wolfram Research社が開発した技術計算システム�
 6. 実験条件に合わせてそのほかの変数を変更し, プログラムを実行します.
 
 
-
 ## その他のソフトウェアについて
 ### HITRANによる混合ガスの透過率スペクトル取得方法について
 > [!NOTE]
@@ -199,6 +198,123 @@ Mathematica とは, Wolfram Research社が開発した技術計算システム�
 
 > [!IMPORTANT]
 > 保存した .txtファイルの横軸は波数なので, 光周波数に換算する場合は横軸に **29979245800** を掛けてください.
+
+
+## (発展) MATLAB で Bin データ 及び 波長計 txt データの同時取得
+
+### 概要
+本プログラムは, ATS-SDK を用いた AlazarTech PCI Digitizer ATS9360 による時間波形の取得と, HighFinesse WS-7 を用いた波長記録を MATLAB 上で並行して実行するためのものです.
+
+ATS9360では, 外部トリガを用いて Channel A 及び Channel B の時間波形を取得します. <br>
+また, ATS-SDK の AutoDMA 機能を利用することで, 取得データを PCI Express 経由で PCメモリ へ高速転送します.
+
+WS-7では, HighFinesse 社 が提供する`wlmData` APIを利用し, 新しい波長測定イベントが発生するたびに波長を記録します.
+
+測定終了後, ATS9360 の各チャンネルデータを Bin形式 で保存し, WS-7 の経過時間および波長データを txt形式 で保存します.
+
+>[!IMPORTANT]
+>本プログラムには, AlazarTech ATS-SDK に含まれるサンプルコード, ラッパー関数, ライブラリ関連ファイルを使用しているため, 著作権及びライセンス上の理由から, プログラム本体は公開していません.
+>
+>ATS-SDK 及び関連ファイルについては, AlazarTech の公式サイトから利用条件を確認したうえで取得してください.
+
+### 動作環境
+- MATLAB R2026a 以降
+- [AlazarTech ATS-SDK](https://github.com/user-attachments/files/29046647/ATS-SDK-Guide.pdf)
+- [AlazarTech ATS9360](https://github.com/user-attachments/files/29046689/ATS9360.User.Manual_V1_0_Complete.pdf)
+- Windows 64-bit
+- ATSApi.dll
+- ATSApi_thunk_pcwin64.dll
+- HighFinesse WS-7
+- [HighFinesse Wavelength Meter software](https://www.highfinesse.com/en/howto/tutorial/Control_Wavemeter_Own_Application_EN.pdf)
+
+### 測定条件
+本プログラムでは, 以下の条件でデータを取得します.
+
+| 項目 | 設定 |
+| --- | --- |
+| デジタイザ | ATS9360 |
+| サンプリングレート | 200 MS/s |
+| サンプル数 | `2^25` |
+| 入力チャンネル | Channel A, Channel B |
+| カプリング | DC |
+| 入力レンジ | ±400 mV |
+| 入力インピーダンス | 50 Ω |
+| トリガソース | External Trigger |
+| 入力トリガ | TTL level |
+| トリガスロープ | Positive |
+| データ取得モード | NPT AutoDMA |
+| 1転送あたりのレコード数 | 1 |
+| 転送回数 | 1 |
+| ATS9360 出力 | Two Bin files |
+| WS-7 出力 | Tab-delimited txt |
+
+### ファイル構成
+ファイルは, 役割に応じて以下のように分類できます.
+
+ATS9360 関連
+```text
+ATS9360_NPT_StreamToMemory.m
+AlazarDefs.m
+alazarLoadLibrary.m
+AlazarInclude_pcwin64.m
+ATSApi_thunk_pcwin64.dll
+ATSApi_thunk_pcwin64.lib
+AlazarGetBoardBySystemID.m
+AlazarGetBoardKind.m
+AlazarGetChannelInfo.m
+AlazarSetCaptureClock.m
+AlazarInputControlEx.m
+AlazarSetBWLimit.m
+AlazarSetExternalTrigger.m
+AlazarSetTriggerOperation.m
+AlazarSetTriggerDelay.m
+AlazarSetTriggerTimeOut.m
+AlazarConfigureAuxIO.m
+AlazarSetRecordSize.m
+AlazarBeforeAsyncRead.m
+AlazarAllocBuffer.m
+AlazarPostAsyncBuffer.m
+AlazarStartCapture.m
+AlazarWaitAsyncBufferComplete.m
+AlazarAbortAsyncRead.m
+AlazarFreeBuffer.m
+errorToText.m
+boardTypeIdToText.m
+inputRangeIdToVolts.m
+```
+WS-7 関連
+```
+recordWS7External.m
+test.m
+simple_calls.m
+fast_readout.m
+longterm.m
+longterm.fig
+compile_and_call.m
+wlmRecordWavelengths.cpp
+wlmRecordWavelengths.mexw64
+wlmData.h
+wlmData.lib
+wlm_constants.m
+wlm_constants.mat
+wlmData.dll
+```
+
+> [!NOTE]
+> 上記の一部ファイルはAlazarTech ATS-SDKに含まれるラッパー関数およびライブラリ関連ファイルです.
+> 著作権およびライセンス上の理由から, 本リポジトリではこれらのファイルを公開していません.
+> 本READMEでは, ファイル構成と各処理の役割のみを説明します.
+
+
+### 著作権及びライセンス
+AlazarTech, ATS-SDK, ATSApi 及び関連する製品名・ライブラリ名は, AlazarTech, Inc. に帰属します.
+
+本研究で使用したプログラムには, AlazarTech ATS-SDK に含まれるサンプルコード, ラッパー関数, ライブラリ関数が含まれます.
+
+これらのファイルは, AlazarTech のライセンス条件に従う必要があるため, 本リポジトリでは公開, 再配布していません.
+
+本リポジトリは研究内容及び処理方法の説明を目的としており, ソースコードの配布または再利用を許諾するものではありません.
+
 
 ## 免責事項
 本リポジトリで提供するプログラム，スクリプト，およびドキュメント類は，参考目的で公開するものです．内容や動作については可能な限り検証していますが，その正確性，完全性，安全性，動作，特定用途への適合性を保証するものではありません．
