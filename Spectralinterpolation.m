@@ -16,19 +16,19 @@ BurstPhase = 120;                            % バースト位相 [°] (90°以�
 mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'my063';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'cm004';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
 AcquisitionMin = 0;                          % データ取得時間 [分]
-AcquisitionSec = 23;                         % データ取得時間 [秒]
+AcquisitionSec = 25;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
 RFPeakJudge = 0.92;
-OptPeakJudge = 0.94;
-
+OptPeakJudge1 = 0.96;
+OptPeakJudge2 = 0.90;
 
 % x軸の生成 (自己研究と合致しているか確認すること)
 N = 2^25;                                    % サンプル数 [S]
@@ -49,6 +49,32 @@ HITRANdata = readtable("C:\Users\yuma0\デスクトップ\研究室\MATLAB用\Sp
 X_Fraction = HITRANdata{:, 1};                              % HITRANのx軸の取得 (波数 [cm^-1])
 HITRAN_X = X_Fraction * 29979245800;                        % 波数から光周波数に変換 [Hz]
 HITRAN_Y = HITRANdata{:, 2};                                % HITRANのy軸の取得 (透過率)
+
+%% データの保存 (emf 形式) ※保存先があっているか確認
+% Judge = 1 の時、フォルダを自動で作成し、データを保存
+if Judge == 1 || Judge == 2
+    BaseFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\MATLAB取得データ";  % ファイルの保存先フォルダの選択
+    SubFolder1 = string(datetime('now', 'Format', 'yyyyMMdd'));                                 % 新しいフォルダ名の設定 (ex:20250101)
+    SubFolder2 = string(datetime('now', 'Format', 'HH;mm;ss'));                                 % 新しいフォルダ名の設定 (ex:11;10;30)
+    SubFolder2 = SubFolder2 + '_' + Name;                                                       % 保存時刻の後に実行ファイルの記録
+    NewFolder = fullfile(BaseFolder, SubFolder1, SubFolder2);                                   % 指定した保存先に新しいフォルダの作成
+    % フォルダが存在しなければ作成 (~:論理NOT演算子, dir:ファイル一覧の表示)
+    if ~exist(NewFolder, 'dir')
+        mkdir(NewFolder);
+    end
+    % emf用のサブフォルダを作成
+    EmfFolder = fullfile(NewFolder,[Name, '_emf']);
+    if ~exist(EmfFolder, 'dir')
+        mkdir(EmfFolder);
+    end
+    % txt用のサブフォルダを作成
+    if Judge == 2
+        TxtFolder = fullfile(NewFolder,[Name, '_txt']);
+        if ~exist(TxtFolder, 'dir')
+            mkdir(TxtFolder);
+        end
+    end
+end
 
 %% 波長計で保存したltaファイルをtxtデータへ変換、中心波長・光周波数シフト量の推定値の自動測定
 InportltaFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\ltaファイル入れる用";            % 変換前のltaファイルが入ったフォルダの指定
@@ -134,12 +160,29 @@ UpOptFrequency = Acquisition_OptFrequency(UpRange).';                           
 UpTimeStart = UpTime - UpTime(1);    % 最小値の位置を0とするため、最小値の位置からの時間軸を生成
 
 % 多項式近似
-p = polyfit(UpTimeStart, UpOptFrequency, 1);    % 最小値の位置から最大値の位置までの範囲のデータを多項式近似
+p = polyfit(UpTimeStart, UpOptFrequency, 9);    % 最小値の位置から最大値の位置までの範囲のデータを多項式近似
 FitOptFrequency = polyval(p, UpTimeStart);      % 多項式近似したデータのy軸の値を算出
 
 % 微分して光周波数の瞬間速度を算出
 dp = polyder(p);    % 多項式近似の微分を算出
-V_opt = polyval(dp, UpTimeStart);    % 多項式近似の微分の値を算出
+V_opt = polyval(dp, UpTimeStart);    % 波長計の光周波数シフト量の瞬間速度を算出
+
+% 線形シフト時の平均速度の算出
+Vlinear = (FitOptFrequency(end) - FitOptFrequency(1)) / (UpTimeStart(end) - UpTimeStart(1));    % 多項式近似の線形部分の速度を算出
+
+% 光周波数シフトの速度比の算出
+R = V_opt / Vlinear;    % 光周波数シフト量の瞬間速度と線形部分の速度の比を算出
+
+if Judge == 2
+    writetable(table(UpTimeStart, R), fullfile(TxtFolder, [Name, '_Optical Frequency Sweep rate ratio.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+    writetable(table(UpTimeStart, UpOptFrequency), fullfile(TxtFolder, [Name, '_Optical Frequency Sweep.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+end
+
+
+% 速度比の積分平均の算出
+R_mean = trapz(UpTimeStart, 1-abs(R-1)) / (UpTimeStart(end) - UpTimeStart(1));    % 速度比の積分平均を算出
+% R_mean = mean(1-abs(R-1));    % 速度比の平均を算出
+disp('Mean Velocity Ratio'); disp(num2str(R_mean, '%.8f'));
 
 % 多項式近似との差分
 DiffOptFrequency = mean(abs(UpOptFrequency - FitOptFrequency));    % 多項式近似との周波数差分を算出
@@ -172,6 +215,9 @@ Fc = (Max_OptFrequency + Min_OptFrequency) / 2; % 中心周波数の算出
 disp('Center Optical Frequency [THz]'); disp(num2str(Fc/1e12, '%.4f'));      % 算出した中心周波数の表示
 disp('Center Frequency [THz]'); disp(Fc/1e12);                                     % 中心周波数の表示
 
+Center_wavelength = 299792458 / Fc;                                                   % 中心波長の算出
+disp('Center Wavelength [nm]'); disp(num2str(Center_wavelength*1e9, '%.4f'));      % 算出した中心波長の表示
+
 % 光周波数シフト量の算出 (推定値) (mode 1:三角波, mode 2:正弦波)
 if mode == 1
     OptDiff_modConv = (Max_OptFrequency - Min_OptFrequency) / (180 / (180 - (BurstPhase - 90) * 2));  
@@ -181,32 +227,6 @@ if mode == 2
 end
 disp('Optical Interpolation Amount [GHz]'); disp(OptDiff_modConv/1e9);                  % 光周波数シフト量を表示
 
-
-%% データの保存 (emf 形式) ※保存先があっているか確認
-% Judge = 1 の時、フォルダを自動で作成し、データを保存
-if Judge == 1 || Judge == 2
-    BaseFolder = "C:\Users\yuma0\デスクトップ\研究室\MATLAB用\MATLAB取得データ";  % ファイルの保存先フォルダの選択
-    SubFolder1 = string(datetime('now', 'Format', 'yyyyMMdd'));                                 % 新しいフォルダ名の設定 (ex:20250101)
-    SubFolder2 = string(datetime('now', 'Format', 'HH;mm;ss'));                                 % 新しいフォルダ名の設定 (ex:11;10;30)
-    SubFolder2 = SubFolder2 + '_' + Name;                                                       % 保存時刻の後に実行ファイルの記録
-    NewFolder = fullfile(BaseFolder, SubFolder1, SubFolder2);                                   % 指定した保存先に新しいフォルダの作成
-    % フォルダが存在しなければ作成 (~:論理NOT演算子, dir:ファイル一覧の表示)
-    if ~exist(NewFolder, 'dir')
-        mkdir(NewFolder);
-    end
-    % emf用のサブフォルダを作成
-    EmfFolder = fullfile(NewFolder,[Name, '_emf']);
-    if ~exist(EmfFolder, 'dir')
-        mkdir(EmfFolder);
-    end
-    % txt用のサブフォルダを作成
-    if Judge == 2
-        TxtFolder = fullfile(NewFolder,[Name, '_txt']);
-        if ~exist(TxtFolder, 'dir')
-            mkdir(TxtFolder);
-        end
-    end
-end
 
 % 波長計で取得した時間波形の保存 (emf形式)
 if Judge == 1 || Judge == 2
@@ -492,10 +512,10 @@ modConv_PeakDiff = abs(OpRep * RFDiff / OptDiff_modConv - RFRep);              %
 Prop_PeakDiff = mean(PeakDiff1);                                       % 隣り合った吸収線ピーク間隔の算出値を「Prop_PeakDiff」として保存
 
 % 4.2.2 RFピーク間隔の算出値を用いた光周波数シフト量の算出
-OptDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff +RFRep);                 % 算出値から算出した光周波数シフト量を「OptDiff_Prop」として保存
+OptDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff + RFRep);                 % 算出値から算出した光周波数シフト量を「OptDiff_Prop」として保存
 
 % 4.2.3 補正後の算出値を用いた光周波数シフト量の算出
-OptDiff_PropCorr = OptDiff_Prop - DiffOptFrequency;                 % 補正後の算出値から算出した光周波数シフト量を「OptDiff_PropCorr」として保存
+OptDiff_PropCorr = OpRep * RFDiff / (-Prop_PeakDiff * R_mean + RFRep);                 % 補正後の算出値から算出した光周波数シフト量を「OptDiff_PropCorr」として保存
 
 toc;
 
@@ -802,7 +822,7 @@ OPminPeakDistance = 0.05e12;            % 検出ピーク間隔の設定 (これ
 Peak_HITRAN_Y = -Peak_HITRAN_Y;         % 反転したデータを元に戻す
 
 % HITRANの不要なピーク成分を除去
-idx = Peak_HITRAN_Y < OptPeakJudge;       % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = Peak_HITRAN_Y < OptPeakJudge1;       % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 Peak_HITRAN_X = Peak_HITRAN_X(idx);    % 除去後のHITRANのx軸に上書き
 Peak_HITRAN_Y = Peak_HITRAN_Y(idx);    % 除去後のHITRANのy軸に上書き
 
@@ -867,8 +887,8 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.1.2 Smoothened Cut EO-Comb Spectrum of Modified Conv. Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(AX2(:), AY2(:)), fullfile(TxtFolder, [Name, '_CombB_modConv.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
-        writetable(table(AX1(:), AY1(:)), fullfile(TxtFolder, [Name, '_CombA_modConv.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(AX2(:), SmthAY2(:)), fullfile(TxtFolder, [Name, '_modConv_CombB.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(AX1(:), SmthAY1(:)), fullfile(TxtFolder, [Name, '_modConv_CombA.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -898,7 +918,7 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.1.3 Optical Absorption of Modified Conv. Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(AX1(:), Absorption_modConv(:)), fullfile(TxtFolder, [Name, '_OptAbsorption_modConv.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(AX1(:), Absorption_modConv(:)), fullfile(TxtFolder, [Name, '_modConv_OptAbsorption.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -906,7 +926,7 @@ end
 % 8.1.4 吸収線ピーク位置の検出、HITRANとの比較 (推定値)
 [PeakAbsorption_modConv, PeakLocation_modConv] = findpeaks(-Absorption_modConv, AX1, 'MinPeakDistance', OPminPeakDistance);
 PeakAbsorption_modConv = -PeakAbsorption_modConv;                                   % 反転したデータを元に戻す
-idx = PeakAbsorption_modConv < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = PeakAbsorption_modConv < OptPeakJudge1;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 PeakLocation_modConv = PeakLocation_modConv(idx);                                  % 除去後のx軸に上書き
 PeakAbsorption_modConv = PeakAbsorption_modConv(idx);                              % 除去後のy軸に上書き
 
@@ -991,8 +1011,8 @@ hold off
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.2.2 Smoothed Cut EO-Comb Spectrum of Proposed Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(BX2(:), BY2(:)), fullfile(TxtFolder, [Name, '_CombB_Prop.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
-        writetable(table(BX1(:), BY1(:)), fullfile(TxtFolder, [Name, '_CombA_Prop.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(BX2(:), SmthBY2(:)), fullfile(TxtFolder, [Name, '_Prop_CombB.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(BX1(:), SmthBY1(:)), fullfile(TxtFolder, [Name, '_Prop_CombA.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -1022,7 +1042,7 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.2.3 Optical Absorption of Proposed Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(BX1(:), Absorption_Prop(:)), fullfile(TxtFolder, [Name, '_OptAbsorption_Prop.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(BX1(:), Absorption_Prop(:)), fullfile(TxtFolder, [Name, '_Prop_OptAbsorption.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -1030,7 +1050,7 @@ end
 % 8.2.4 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
 [PeakAbsorption_Prop, PeakLocation_Prop] = findpeaks(-Absorption_Prop, BX1, 'MinPeakDistance', OPminPeakDistance);
 PeakAbsorption_Prop = -PeakAbsorption_Prop;                                   % 反転したデータを元に戻す
-idx = PeakAbsorption_Prop < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = PeakAbsorption_Prop < OptPeakJudge1;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 PeakLocation_Prop = PeakLocation_Prop(idx);                                  % 除去後のx軸に上書き
 PeakAbsorption_Prop = PeakAbsorption_Prop(idx);                              % 除去後のy軸に上書き
 
@@ -1117,8 +1137,8 @@ hold off
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.2 Smoothed Cut EO-Comb Spectrum of Corrected Proposed Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(CX2(:), CY2(:)), fullfile(TxtFolder, [Name, '_CombB_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
-        writetable(table(CX1(:), CY1(:)), fullfile(TxtFolder, [Name, '_CombA_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(CX2(:), SmthCY2(:)), fullfile(TxtFolder, [Name, '_PropCorr_CombB.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(CX1(:), SmthCY1(:)), fullfile(TxtFolder, [Name, '_PropCorr_CombA.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -1148,7 +1168,7 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_8.3.3 Optical Absorption of Corrected Proposed Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(CX1(:), Absorption_PropCorr(:)), fullfile(TxtFolder, [Name, '_OptAbsorption_PropCorr.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(CX1(:), Absorption_PropCorr(:)), fullfile(TxtFolder, [Name, '_PropCorr_OptAbsorption.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
@@ -1156,7 +1176,7 @@ end
 % 8.3.4 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
 [PeakAbsorption_PropCorr, PeakLocation_PropCorr] = findpeaks(-Absorption_PropCorr, CX1, 'MinPeakDistance', OPminPeakDistance);
 PeakAbsorption_PropCorr = -PeakAbsorption_PropCorr;                                   % 反転したデータを元に戻す
-idx = PeakAbsorption_PropCorr < OptPeakJudge;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = PeakAbsorption_PropCorr < OptPeakJudge1;                                      % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 PeakLocation_PropCorr = PeakLocation_PropCorr(idx);                                  % 除去後のx軸に上書き
 PeakAbsorption_PropCorr = PeakAbsorption_PropCorr(idx);                              % 除去後のy軸に上書き
 
@@ -1493,14 +1513,14 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_11.1.1 Baseline Corrected Optical Absorption of Modified Conv. Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(AX1(:), Div_Absorption_modConv(:)), fullfile(TxtFolder, [Name, '_BaseCorrAbsorption_modConv.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(AX1(:), Div_Absorption_modConv(:)), fullfile(TxtFolder, [Name, '_modConv_BaseCorrAbsorption_modConv.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
 % 11.1.2 吸収線ピーク位置の検出、HITRANとの比較 (推定値)
 [DivPeakAbsorption_modConv, DivPeakLocation_modConv] = findpeaks(-Div_Absorption_modConv, AX1, 'MinPeakDistance', OPminPeakDistance);
 DivPeakAbsorption_modConv = -DivPeakAbsorption_modConv;                                   % 反転したデータを元に戻す
-idx = DivPeakAbsorption_modConv < OptPeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = DivPeakAbsorption_modConv < OptPeakJudge2;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 DivPeakLocation_modConv = DivPeakLocation_modConv(idx);                                  % 除去後のx軸に上書き
 DivPeakAbsorption_modConv = DivPeakAbsorption_modConv(idx);                              % 除去後のy軸に上書き
 
@@ -1547,14 +1567,14 @@ fontname("Times New Roman")                                   % フォント名�
 if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_11.2.1 Baseline Corrected Optical Absorption of Proposed Method.emf']), 'emf');
     if Judge == 2
-        writetable(table(BX1(:), Div_Absorption_Prop(:)), fullfile(TxtFolder, [Name, '_BaseCorrAbsorption_Prop.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
+        writetable(table(BX1(:), Div_Absorption_Prop(:)), fullfile(TxtFolder, [Name, '_Prop_BaseCorrAbsorption.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
     end
 end
 
 % 11.2.2 吸収線ピーク位置の検出、HITRANとの比較 (算出値)
 [DivPeakAbsorption_Prop, DivPeakLocation_Prop] = findpeaks(-Div_Absorption_Prop, BX1, 'MinPeakDistance', OPminPeakDistance);
 DivPeakAbsorption_Prop = -DivPeakAbsorption_Prop;                                   % 反転したデータを元に戻す
-idx = DivPeakAbsorption_Prop < OptPeakJudge;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
+idx = DivPeakAbsorption_Prop < OptPeakJudge2;                                         % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 DivPeakLocation_Prop = DivPeakLocation_Prop(idx);                                  % 除去後のx軸に上書き
 DivPeakAbsorption_Prop = DivPeakAbsorption_Prop(idx);                              % 除去後のy軸に上書き
 
@@ -1601,7 +1621,7 @@ if Judge == 1 || Judge == 2
     txtFileName = fullfile(NewFolder, [Name, '_Results.txt']);
     fid = fopen(txtFileName, 'a');                                                % 書き込みで開く
     fprintf(fid, 'RF Peak Judge: %.2f \n', RFPeakJudge);
-    fprintf(fid, 'Opt Peak Judge: %.2f \n', OptPeakJudge);
+    fprintf(fid, 'Opt Peak Judge: %.2f  %.2f\n', OptPeakJudge1, OptPeakJudge2);
     fprintf(fid, 'Corrected Peak Residual Between HITRAN and Modified Conv. Method [GHz]: '); fprintf(fid, ' %.4f ', DivPeakRes_HITRAN_AX/1e9);
     fprintf(fid, '\n');
     fprintf(fid, 'Corrected Peak Residual Between HITRAN and Proposed Method [GHz]:       '); fprintf(fid, ' %.4f ', DivPeakRes_HITRAN_BX/1e9);
