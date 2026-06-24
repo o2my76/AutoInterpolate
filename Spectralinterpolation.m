@@ -490,18 +490,75 @@ end
 
 %% 検出したRF吸収線のピーク間隔のうち、隣り合ったピーク間隔のみを自動で算出
 % 隣り合ったRF吸収線ピーク間隔の算出及び標準偏差の算出
-PeakDiff1 = RFPeakLocation(2:end) - RFPeakLocation(1:end-1);            % RF吸収線ピーク間隔の算出 (x成分)
-PeakAbsorption = abs(RFPeakAbsorption(2:end) - RFPeakAbsorption(1:end-1)); % RF吸収線ピーク値の算出 (y成分)
-idx = PeakDiff1 < 0.5e6;                                                % 隣り合った吸収線かどうかの判別 (間隔が0.5 MHz 未満で隣り合っていると判断し、インデックスを取得)
-PeakDiff1 = PeakDiff1(idx);                                             % 隣り合った吸収線ピーク間隔のみ残す (x成分)
-PeakAbsorption = PeakAbsorption(idx);                                   % 隣り合った吸収線ピーク値のみ残す (y成分)
 
-idx = PeakAbsorption < 0.03;                                            % 隣り合った吸収線ピーク値の差分の算出 (0.03未満のみを残し、インデックスを取得)
-PeakDiff2 = PeakDiff1(idx);                                             % 取得したインデックスの吸収線ピーク間隔のみ残す
-disp('RF Peak Interval [MHz]'); disp(PeakDiff2/1e6);
-std_PeakDiff = std(PeakDiff2);                                          % 隣り合った吸収線ピーク間隔の標準偏差を「std_PeakDiff」として保存
+% 配列を列ベクトルに統一
+RFPeakLocation = RFPeakLocation(:);
+RFPeakAbsorption = RFPeakAbsorption(:);
+
+% 結果保存用の配列を初期化
+AdjacentPeakLocation1 = zeros(length(RFPeakLocation)-1, 1);    % 低周波側ピーク位置
+AdjacentPeakLocation2 = zeros(length(RFPeakLocation)-1, 1);    % 高周波側ピーク位置
+AdjacentPeakAbsorption1 = zeros(length(RFPeakLocation)-1, 1);  % 低周波側ピーク透過率
+AdjacentPeakAbsorption2 = zeros(length(RFPeakLocation)-1, 1);  % 高周波側ピーク透過率
+PeakDiff2 = zeros(length(RFPeakLocation)-1, 1);                % ピーク間隔
+
+PairCount = 0;    % 隣接ピークの組数をカウントする変数を初期化
+
+% 低周波側から順番に隣接ピークを判定
+for i = 1:length(RFPeakLocation)-1
+
+    % i番目とi+1番目のピーク間隔
+    PeakDiffTemp = RFPeakLocation(i+1) - RFPeakLocation(i);
+
+    % i番目とi+1番目のピーク透過率差
+    PeakAbsorptionDiffTemp = abs( ...
+        RFPeakAbsorption(i+1) - RFPeakAbsorption(i));
+
+    % 隣接ピークの条件
+    if (PeakDiffTemp < 0.5e6) && (PeakAbsorptionDiffTemp < 0.03)
+
+        PairCount = PairCount + 1;    % 隣接ピークの組数をカウント
+
+        % 低周波側ピーク位置
+        AdjacentPeakLocation1(PairCount, 1) = RFPeakLocation(i);
+
+        % 高周波側ピーク位置
+        AdjacentPeakLocation2(PairCount, 1) = RFPeakLocation(i+1);
+
+        % 低周波側ピーク透過率
+        AdjacentPeakAbsorption1(PairCount, 1) = RFPeakAbsorption(i);
+
+        % 高周波側ピーク透過率
+        AdjacentPeakAbsorption2(PairCount, 1) = RFPeakAbsorption(i+1);
+
+        % ピーク間隔
+        PeakDiff2(PairCount, 1) = PeakDiffTemp;
+    end
+end
+
+% 実際に保存した要素だけ残す
+AdjacentPeakLocation1 = AdjacentPeakLocation1(1:PairCount);
+AdjacentPeakLocation2 = AdjacentPeakLocation2(1:PairCount);
+AdjacentPeakAbsorption1 = AdjacentPeakAbsorption1(1:PairCount);
+AdjacentPeakAbsorption2 = AdjacentPeakAbsorption2(1:PairCount);
+PeakDiff2 = PeakDiff2(1:PairCount);
+
+% 各行を1組の隣接ピークとして保存
+AdjacentPeakLocations = [AdjacentPeakLocation1, AdjacentPeakLocation2];
+AdjacentPeakAbsorptions = [AdjacentPeakAbsorption1, AdjacentPeakAbsorption2];
+
+% 結果表示
+disp('Adjacent RF Peak Locations [MHz]');
+disp(AdjacentPeakLocations / 1e6);
+
+disp('RF Peak Interval [MHz]');
+disp(PeakDiff2 / 1e6);
+
+% 標準偏差
+std_PeakDiff = std(PeakDiff2);
+
 disp('S.D. RF Peak Interval [MHz]');
-disp(std_PeakDiff/1e6);                                                 % 標準偏差の表示
+disp(std_PeakDiff / 1e6);
 
 
 %% 隣り合ったピーク間隔から光周波数シフト量を自動で算出
@@ -509,7 +566,7 @@ disp(std_PeakDiff/1e6);                                                 % 標準
 modConv_PeakDiff = abs(OpRep * RFDiff / OptDiff_modConv - RFRep);              % 推定値の大きさを「modConv_PeakDiff」として保存
 
 % 4.2.1 隣り合ったRF吸収線ピーク間隔の算出値の算出
-Prop_PeakDiff = mean(PeakDiff1);                                       % 隣り合った吸収線ピーク間隔の算出値を「Prop_PeakDiff」として保存
+Prop_PeakDiff = mean(PeakDiff2);                                       % 隣り合った吸収線ピーク間隔の算出値を「Prop_PeakDiff」として保存
 
 % 4.2.2 RFピーク間隔の算出値を用いた光周波数シフト量の算出
 OptDiff_Prop = OpRep * RFDiff / (-Prop_PeakDiff + RFRep);                 % 算出値から算出した光周波数シフト量を「OptDiff_Prop」として保存
