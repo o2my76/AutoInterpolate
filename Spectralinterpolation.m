@@ -16,19 +16,19 @@ BurstPhase = 120;                            % バースト位相 [°] (90°以�
 mode = 1;                                    % 変調波の種類 (三角波: 1, 正弦波: 2 を入力)
 
 % 実行するフォルダ名を入力、データ保存の有無決定
-Name = 'cm004';                               % 読み込むBinファイルが入ったフォルダ名を入力
+Name = 'my105';                               % 読み込むBinファイルが入ったフォルダ名を入力
 Judge = 0;                                   % データ保存の有無 (No: 0, Yes: 1, Yes with txt: 2)
 
 % 波長計で取得した時間を入力 [s] (適宜変更すること)
-AcquisitionMin = 0;                          % データ取得時間 [分]
-AcquisitionSec = 25;                         % データ取得時間 [秒]
+AcquisitionMin = 00;                          % データ取得時間 [分]
+AcquisitionSec = 26;                         % データ取得時間 [秒]
 
 AcquisitionTime = 60 * AcquisitionMin + AcquisitionSec;
 
 % 検出する吸収線ピーク値の閾値 (設定した値未満をピーク値とみなす)
-RFPeakJudge = 0.92;
-OptPeakJudge1 = 0.96;
-OptPeakJudge2 = 0.90;
+RFPeakJudge = 0.96;
+OptPeakJudge1 = 0.97;
+OptPeakJudge2 = 0.88;
 
 % x軸の生成 (自己研究と合致しているか確認すること)
 N = 2^25;                                    % サンプル数 [S]
@@ -148,66 +148,104 @@ plot(Min_LocsTime, Min_OptFrequency, 'bv', 'MarkerFaceColor', 'w');             
 
 hold off
 
+%% 波長計データから情報を取得
+% 波長計の時間軸の最小値と最大値の位置を取得 (バースト位相を考慮しない)
+WavelengthMinTime = Min_LocsTime(1);    % 最小値の最初の位置を取得
+idx_Max1 = find(Max_LocsTime > WavelengthMinTime, 1, 'first');    % 最小値の位置より後の最大値の位置を取得
+WavelengthMaxTime = Max_LocsTime(idx_Max1);    % 最小値の位置より後の最大値の位置を取得
 
-T_Min = Min_LocsTime(1) + (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の最初の位置を取得
-idx_Max = find(Max_LocsTime > T_Min, 1, 'first');    % 最小値の位置より後の最大値の位置を取得
-T_Max = Max_LocsTime(idx_Max) - (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の位置より後の最大値の位置を取得
+% 最大値と最小値の範囲の波長計データを取得
+WavelengthRange = (Acquisition_TimerRange >= WavelengthMinTime) & (Acquisition_TimerRange <= WavelengthMaxTime);            % 最小値の位置から最大値の位置までの範囲を設定
+WavelengthTime = Acquisition_TimerRange(WavelengthRange);                                                   % 設定した範囲の時間軸の取得
+WavelengthOptFrequency = Acquisition_OptFrequency(WavelengthRange).';                                       % 設定した範囲の光周波数軸の取得
+WavelengthTimeStart = WavelengthTime - WavelengthTime(1);    % 最小値を0とし、0sからの時間軸を生成
 
-UpRange = (Acquisition_TimerRange >= T_Min) & (Acquisition_TimerRange <= T_Max);            % 最小値の位置から最大値の位置までの範囲を設定
-UpTime = Acquisition_TimerRange(UpRange);                                                   % 設定した範囲の時間軸の取得
-UpOptFrequency = Acquisition_OptFrequency(UpRange).';                                       % 設定した範囲の光周波数軸の取得
+% 測定範囲内の波長計の時間軸の最小値と最大値の位置を取得 (バースト位相を考慮)
+AcquisitionWavelengthMinTime = WavelengthMinTime + (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の最初の位置を取得
+idx_Max2 = find(Max_LocsTime > AcquisitionWavelengthMinTime, 1, 'first');    % 最小値の位置より後の最大値の位置を取得
+AcquisitionWavelengthMaxTime = Max_LocsTime(idx_Max2) - (BurstPhase - 90) / (360 * CH2_Freq);    % 最小値の位置より後の最大値の位置を取得
 
-UpTimeStart = UpTime - UpTime(1);    % 最小値の位置を0とするため、最小値の位置からの時間軸を生成
+% 波長計データそのものの最小値と最大値の範囲を取得
+MeasurementRange = (Acquisition_TimerRange >= AcquisitionWavelengthMinTime) & (Acquisition_TimerRange <= AcquisitionWavelengthMaxTime);            % 最小値の位置から最大値の位置までの範囲を設定
+MeasurementTime = Acquisition_TimerRange(MeasurementRange);                                                   % 設定した範囲の時間軸の取得
+MeasurementOptFrequency = Acquisition_OptFrequency(MeasurementRange).';                                       % 設定した範囲の光周波数軸の取得
+MeasurementTimeStart = MeasurementTime - MeasurementTime(1);    % 最小値を0とし、0sからの時間軸を生成
+% 波長計データの多項式近似
+p = polyfit(WavelengthTimeStart, WavelengthOptFrequency, 9);    % 最小値の位置から最大値の位置までの範囲のデータを多項式近似
+PolyfitOptFrequency = polyval(p, WavelengthTimeStart);      % 多項式近似したデータのy軸の値を算出
 
-% 多項式近似
-p = polyfit(UpTimeStart, UpOptFrequency, 9);    % 最小値の位置から最大値の位置までの範囲のデータを多項式近似
-FitOptFrequency = polyval(p, UpTimeStart);      % 多項式近似したデータのy軸の値を算出
+% 波長計データ範囲に対応するインデックスを取得
+MeasurementIdx = (WavelengthTime >= MeasurementTime(1)) & (WavelengthTime <= MeasurementTime(end));
+% 測定範囲内に対応する近似曲線
+MeasurementPolyfitTime = WavelengthTime(MeasurementIdx);
+MeasurementPolyfitOptFrequency = PolyfitOptFrequency(MeasurementIdx);
+MeasurementPolyfitTimeStart = MeasurementPolyfitTime - MeasurementPolyfitTime(1);    % 最小値を0とし、0sからの時間軸を生成
 
-% 微分して光周波数の瞬間速度を算出
-dp = polyder(p);    % 多項式近似の微分を算出
-V_opt = polyval(dp, UpTimeStart);    % 波長計の光周波数シフト量の瞬間速度を算出
+% 最小値・最大値の2点を配列に格納
+LinearTime = [WavelengthMinTime, WavelengthMaxTime];    % 最小値・最大値の時間軸の配列を作成
+LinearOptFrequency = [Min_OptFrequency(1), Max_OptFrequency(idx_Max1)];    % 最小値・最大値の光周波数の配列を作成
+% 2点を結んだ線分を作成
+LinearOptFrequency_Fit = interp1(LinearTime, LinearOptFrequency, WavelengthTime, 'linear');
+% 測定範囲内に対応する線分
+MeasurementLinearTime = WavelengthTime(MeasurementIdx);
+MeasurementLinearOptFrequency = LinearOptFrequency_Fit(MeasurementIdx);
+MeasurementLinearTimeStart = MeasurementLinearTime - MeasurementLinearTime(1);    % 最小値を0とし、0sからの時間軸を生成
 
-% 線形シフト時の平均速度の算出
-Vlinear = (FitOptFrequency(end) - FitOptFrequency(1)) / (UpTimeStart(end) - UpTimeStart(1));    % 多項式近似の線形部分の速度を算出
+%% 光周波数シフトの瞬時速度を算出
+% 最大・最小を結んだ線分の傾き（基準線分）
+LinearSweepRate = (LinearOptFrequency(2) - LinearOptFrequency(1)) / (LinearTime(2) - LinearTime(1));    % 最大・最小を結んだ線分の傾き [Hz/s]
 
-% 光周波数シフトの速度比の算出
-R = V_opt / Vlinear;    % 光周波数シフト量の瞬間速度と線形部分の速度の比を算出
+% 測定範囲内の各波長計プロット位置における光周波数シフトの瞬時速度を算出
+InstantaneousSweepRate = gradient(MeasurementOptFrequency(:), MeasurementTime(:));    % 測定範囲内の各波長計プロット位置における光周波数シフトの瞬時速度 [Hz/s]
+% 瞬時シフト速度と基準線分の傾きの比率を算出
+SweepRateRatio = InstantaneousSweepRate / LinearSweepRate;    % 瞬時シフト速度と基準線分の傾きの比率
 
-if Judge == 2
-    writetable(table(UpTimeStart, R), fullfile(TxtFolder, [Name, '_Optical Frequency Sweep rate ratio.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
-    writetable(table(UpTimeStart, UpOptFrequency), fullfile(TxtFolder, [Name, '_Optical Frequency Sweep.txt']), 'Delimiter', '\t', 'WriteVariableNames', false);
-end
+% 測定時間内の多項式近似データにおける光周波数シフトの瞬時速度を算出
+MeasurementTimeForPoly = MeasurementTime - WavelengthTime(1);    % 最小値を0とし、0sからの時間軸を生成
+% 多項式近似したデータの瞬時速度を算出
+InstantaneousSweepRateFit = polyval(polyder(p), MeasurementTimeForPoly);    % 多項式近似したデータの瞬時速度を算出
+% 多項式近似したデータの瞬時速度と基準線分の傾きの比率を算出
+SweepRateRatioFit = InstantaneousSweepRateFit / LinearSweepRate;    % 多項式近似したデータの瞬時速度と基準線分の傾きの比率
 
+% 結果表示
+disp('Linear Sweep Rate [GHz/s]'); disp(LinearSweepRate / 1e9);
+disp('Instantaneous Sweep Rate [GHz/s]'); disp(InstantaneousSweepRate / 1e9);
+disp('Sweep Rate Ratio'); disp(SweepRateRatio);
+disp('Instantaneous Sweep Rate (Fitted) [GHz/s]'); disp(InstantaneousSweepRateFit / 1e9);
+disp('Sweep Rate Ratio (Fitted)'); disp(SweepRateRatioFit);
 
-% 速度比の積分平均の算出
-R_mean = trapz(UpTimeStart, 1-abs(R-1)) / (UpTimeStart(end) - UpTimeStart(1));    % 速度比の積分平均を算出
-% R_mean = mean(1-abs(R-1));    % 速度比の平均を算出
-disp('Mean Velocity Ratio'); disp(num2str(R_mean, '%.8f'));
-
-% 多項式近似との差分
-DiffOptFrequency = mean(abs(UpOptFrequency - FitOptFrequency));    % 多項式近似との周波数差分を算出
-disp('Diviation from Polynomial fitting [GHz]'); disp(DiffOptFrequency/1e9);    % 多項式近似との差分を表示
-
-% 倍率値への影響
-DiffMagnification = DiffOptFrequency / RFDiff;    % 倍率値への影響を算出
-disp('Influence on Magnification Factor'); disp(num2str(DiffMagnification, '%.4f'));    % 倍率値への影響を表示
-
+% データ取得時の波長計データと多項式近似、両端の2点を結んだ線分の表示
 figure
-plot(UpTime, UpOptFrequency, 'LineWidth', 1);                          % 最小値の位置から最大値の位置までの範囲のデータの表示
+plot(MeasurementTimeStart, MeasurementOptFrequency, '.r', 'MarkerSize', 20);
 hold on
-plot(UpTime, FitOptFrequency, 'r--', 'LineWidth', 2);                  % 多項式近似の結果を赤い破線で表示
+plot(MeasurementPolyfitTimeStart, MeasurementPolyfitOptFrequency, 'b', 'LineWidth', 2);
+plot(MeasurementLinearTimeStart, MeasurementLinearOptFrequency, 'g', 'LineWidth', 2);
 xlabel('Time [s]')                                                                 % x軸ラベル
 ylabel('Optical Frequency [THz]')                                                   % y軸ラベル
 ax = gca;                                                                          % 現在の座標軸の取得 (gca: get current axis)
 ytick_w = ax.YTick;                                                                % 現在のy軸目盛位置の数値ベクトルを返す
 yticklabels(arrayfun(@(v) num2str(v/1e12, '%.3f'), ytick_w, 'UniformOutput', false));            % THz表記に設定
+legend('Wavelengthmeter data', 'Polynomial Trendline', 'Referenced line', 'Location', 'best');  % 凡例
+fontsize(20,"points")                                                              % フォントサイズの設定
+fontname("Times New Roman")                                                        % フォント名の設定
+hold off
+
+% 光周波数シフトの速度比の表示
+figure
+plot(MeasurementTimeStart, SweepRateRatio, '.r', 'MarkerSize', 20);
+hold on
+plot(MeasurementTimeStart, SweepRateRatioFit, '.b', 'MarkerSize', 20);
+yline(1, 'g--', 'LineWidth', 2);    % 基準線分の傾きの比率を表示（基準値）
+xlabel('Time [s]')                                                                 % x軸ラベル
+ylabel('Sweep Rate Ratio')                                                           % y軸ラベル
+legend('Measured Sweep Rate Ratio', 'Fitted Sweep Rate Ratio', 'Ideal Sweep Rate Ratio', 'Location', 'best');  % 凡例
 fontsize(20,"points")                                                              % フォントサイズの設定
 fontname("Times New Roman")                                                        % フォント名の設定
 hold off
 
 % 取得した最大値と最小値の算出値から中心波長の算出
 Min_OptFrequency = Min_OptFrequency(1);                                           % 光周波数の最小値の取得
-Max_OptFrequency = Max_OptFrequency(idx_Max);                                     % 光周波数の最大値の取得
+Max_OptFrequency = Max_OptFrequency(idx_Max2);                                     % 光周波数の最大値の取得
 disp('Min Optical Frequency [THz]'); disp(num2str(Min_OptFrequency/1e12, '%.4f  '));          % 光周波数の最小値の表示
 disp('Max Optical Frequency [THz]'); disp(num2str(Max_OptFrequency/1e12, '%.4f  '));          % 光周波数の最大値の表示
 
@@ -511,8 +549,7 @@ for i = 1:length(RFPeakLocation)-1
     PeakDiffTemp = RFPeakLocation(i+1) - RFPeakLocation(i);
 
     % i番目とi+1番目のピーク透過率差
-    PeakAbsorptionDiffTemp = abs( ...
-        RFPeakAbsorption(i+1) - RFPeakAbsorption(i));
+    PeakAbsorptionDiffTemp = abs(RFPeakAbsorption(i+1) - RFPeakAbsorption(i));
 
     % 隣接ピークの条件
     if (PeakDiffTemp < 0.5e6) && (PeakAbsorptionDiffTemp < 0.03)
@@ -559,6 +596,286 @@ std_PeakDiff = std(PeakDiff2);
 
 disp('S.D. RF Peak Interval [MHz]');
 disp(std_PeakDiff / 1e6);
+
+% %% RF吸収ピーク位置を波長計の光周波数掃引位置へ対応付け
+
+% % RFコム数
+% n = 35;
+
+% % RFコム中心周波数を作成
+% RF_Center = zeros(n, 1);
+
+% for i = 1:n
+%     RF_Center(i) = AOM + RFRep * (i - 18);
+% end
+
+% % 隣接ピーク対の数
+% PairNum = size(AdjacentPeakLocations, 1);
+
+% % 結果保存用配列
+% NearestRFCenter1 = zeros(PairNum, 1);
+% NearestRFCenter2 = zeros(PairNum, 1);
+
+% RFOffset1 = zeros(PairNum, 1);
+% RFOffset2 = zeros(PairNum, 1);
+
+% NormalizedSweepPosition1 = zeros(PairNum, 1);
+% NormalizedSweepPosition2 = zeros(PairNum, 1);
+
+% CorrespondingOptFrequency1 = zeros(PairNum, 1);
+% CorrespondingOptFrequency2 = zeros(PairNum, 1);
+
+% CorrespondingTime1 = zeros(PairNum, 1);
+% CorrespondingTime2 = zeros(PairNum, 1);
+
+% % 計測時間中に対応する多項式近似上の掃引開始・終了光周波数
+% SweepStartFrequency = PolyOptFrequencyAtMeasurement(1);
+% SweepEndFrequency = PolyOptFrequencyAtMeasurement(end);
+
+% for i = 1:PairNum
+
+%     %% 低周波側RF吸収ピーク
+
+%     % 最も近いRFコム中心周波数
+%     [~, CenterIndex1] = min(abs( ...
+%         RF_Center - AdjacentPeakLocation1(i)));
+
+%     NearestRFCenter1(i) = RF_Center(CenterIndex1);
+
+%     % RFコム中心からの符号付きズレ
+%     RFOffset1(i) = ...
+%         AdjacentPeakLocation1(i) - NearestRFCenter1(i);
+
+%     % 光周波数掃引内の規格化位置
+%     NormalizedSweepPosition1(i) = ...
+%         RFOffset1(i) / RFDiff + 0.5;
+
+%     %% 高周波側RF吸収ピーク
+
+%     % 最も近いRFコム中心周波数
+%     [~, CenterIndex2] = min(abs( ...
+%         RF_Center - AdjacentPeakLocation2(i)));
+
+%     NearestRFCenter2(i) = RF_Center(CenterIndex2);
+
+%     % RFコム中心からの符号付きズレ
+%     RFOffset2(i) = ...
+%         AdjacentPeakLocation2(i) - NearestRFCenter2(i);
+
+%     % 光周波数掃引内の規格化位置
+%     NormalizedSweepPosition2(i) = ...
+%         RFOffset2(i) / RFDiff + 0.5;
+% end
+
+% % 数値誤差などで0～1を外れた値を制限
+% NormalizedSweepPosition1 = max( ...
+%     0, min(1, NormalizedSweepPosition1));
+
+% NormalizedSweepPosition2 = max( ...
+%     0, min(1, NormalizedSweepPosition2));
+
+% % 規格化位置を波長計の光周波数位置に変換
+% CorrespondingOptFrequency1 = ...
+%     SweepStartFrequency ...
+%     + NormalizedSweepPosition1 ...
+%     .* (SweepEndFrequency - SweepStartFrequency);
+
+% CorrespondingOptFrequency2 = ...
+%     SweepStartFrequency ...
+%     + NormalizedSweepPosition2 ...
+%     .* (SweepEndFrequency - SweepStartFrequency);
+
+% % 波長計の多項式近似波形から対応時刻を取得
+% % 多項式近似値と時刻を単調化して対応時刻を取得
+% [PolyfitOptFrequency_sorted, sortIdx] = sort(PolyfitOptFrequency);
+% WavelengthTime_sorted = WavelengthTime(sortIdx);
+
+% [PolyfitOptFrequency_unique, uniqueIdx] = unique(PolyfitOptFrequency_sorted, 'stable');
+% WavelengthTime_unique = WavelengthTime_sorted(uniqueIdx);
+
+% CorrespondingTime1 = interp1( ...
+%     PolyfitOptFrequency_unique, ...
+%     WavelengthTime_unique, ...
+%     CorrespondingOptFrequency1, ...
+%     'linear', ...
+%     NaN);
+
+% CorrespondingTime2 = interp1( ...
+%     PolyfitOptFrequency_unique, ...
+%     WavelengthTime_unique, ...
+%     CorrespondingOptFrequency2, ...
+%     'linear', ...
+%     NaN);
+
+%     % 計測時間中に入っている対応点だけを有効にする
+% ValidPair = ...
+%     CorrespondingTime1 >= MeasurementTime(1) & ...
+%     CorrespondingTime1 <= MeasurementTime(end) & ...
+%     CorrespondingTime2 >= MeasurementTime(1) & ...
+%     CorrespondingTime2 <= MeasurementTime(end) & ...
+%     ~isnan(CorrespondingTime1) & ...
+%     ~isnan(CorrespondingTime2);
+
+% CorrespondingTime1 = CorrespondingTime1(ValidPair);
+% CorrespondingTime2 = CorrespondingTime2(ValidPair);
+
+% CorrespondingOptFrequency1 = CorrespondingOptFrequency1(ValidPair);
+% CorrespondingOptFrequency2 = CorrespondingOptFrequency2(ValidPair);
+
+% AdjacentPeakLocation1 = AdjacentPeakLocation1(ValidPair);
+% AdjacentPeakLocation2 = AdjacentPeakLocation2(ValidPair);
+
+% PairNum = length(CorrespondingTime1);
+
+%     PeakSweepPositionTable = table( ...
+%     AdjacentPeakLocation1 / 1e6, ...
+%     NearestRFCenter1 / 1e6, ...
+%     RFOffset1 / 1e6, ...
+%     NormalizedSweepPosition1, ...
+%     CorrespondingOptFrequency1 / 1e12, ...
+%     CorrespondingTime1, ...
+%     AdjacentPeakLocation2 / 1e6, ...
+%     NearestRFCenter2 / 1e6, ...
+%     RFOffset2 / 1e6, ...
+%     NormalizedSweepPosition2, ...
+%     CorrespondingOptFrequency2 / 1e12, ...
+%     CorrespondingTime2, ...
+%     'VariableNames', { ...
+%         'LowPeak_MHz', ...
+%         'LowRFCenter_MHz', ...
+%         'LowRFOffset_MHz', ...
+%         'LowSweepPosition', ...
+%         'LowOptFrequency_THz', ...
+%         'LowTime_s', ...
+%         'HighPeak_MHz', ...
+%         'HighRFCenter_MHz', ...
+%         'HighRFOffset_MHz', ...
+%         'HighSweepPosition', ...
+%         'HighOptFrequency_THz', ...
+%         'HighTime_s'});
+
+% disp(PeakSweepPositionTable);
+
+% CorrespondingTimeStart = min( ...
+%     CorrespondingTime1, CorrespondingTime2);
+
+% CorrespondingTimeEnd = max( ...
+%     CorrespondingTime1, CorrespondingTime2);
+
+% CorrespondingTimeInterval = ...
+%     CorrespondingTimeEnd - CorrespondingTimeStart;
+
+% disp('Corresponding Wavelengthmeter Time Range [s]');
+% disp([CorrespondingTimeStart, CorrespondingTimeEnd]);
+
+% disp('Corresponding Time Interval [s]');
+% disp(CorrespondingTimeInterval);
+
+% % 各RF吸収ピーク対に対応する速度比の区間平均
+% PairVelocityRatio = zeros(PairNum, 1);
+
+% for i = 1:PairNum
+
+%     % 対応する時間区間
+%     TimeRangeIdx = ...
+%         (MeasurementTime >= CorrespondingTimeStart(i)) & ...
+%         (MeasurementTime <= CorrespondingTimeEnd(i));
+
+%     if nnz(TimeRangeIdx) >= 2
+
+%         PairVelocityRatio(i) = trapz( ...
+%             MeasurementTime(TimeRangeIdx), ...
+%             R(TimeRangeIdx)) ...
+%             / CorrespondingTimeInterval(i);
+
+%     else
+%         PairVelocityRatio(i) = NaN;
+
+%         warning( ...
+%             'ピーク対%dに対応する波長計データ点が不足しています。', ...
+%             i);
+%     end
+% end
+
+% disp('Mean Sweep Rate Ratio for Each Peak Pair');
+% disp(PairVelocityRatio);
+
+
+% % CorrespondingTime1, CorrespondingTime2 はすでに絶対時刻 [s]
+% CorrespondingTimeAbs1 = CorrespondingTime1;
+% CorrespondingTimeAbs2 = CorrespondingTime2;
+
+% figure
+
+% % 計測時間中の波長計データ
+% plot(MeasurementTime, MeasurementOptFrequency/1e12, 'or', ...
+%     'MarkerSize', 6, ...
+%     'MarkerFaceColor', 'r');
+
+% hold on
+
+% % 半周期全体の多項式近似
+% plot(WavelengthTime, PolyfitOptFrequency/1e12, 'b', ...
+%     'LineWidth', 2);
+
+% % 計測時間中の始点・終点を結ぶ線分
+% plot(MeasurementTime, LinearOptFrequency_Fit/1e12, '--g', ...
+%     'LineWidth', 2);
+
+%     % 対応する吸収ピーク位置を波長計波形上に表示
+% plot(CorrespondingTime1, CorrespondingOptFrequency1/1e12, 'ks', ...
+%     'MarkerSize', 10, ...
+%     'MarkerFaceColor', 'y', ...
+%     'LineWidth', 1.5);
+
+% plot(CorrespondingTime2, CorrespondingOptFrequency2/1e12, 'kd', ...
+%     'MarkerSize', 10, ...
+%     'MarkerFaceColor', 'c', ...
+%     'LineWidth', 1.5);
+    
+% xlabel('Time [s]')
+% ylabel('Optical Frequency [THz]')
+
+% legend( ...
+%     'Wavelengthmeter data', ...
+%     'Polynomial Fitting', ...
+%     'Linear Line', ...
+%     'Low-frequency RF Peak Position', ...
+%     'High-frequency RF Peak Position', ...
+%     'Location', 'best')
+
+% fontsize(20,"points")
+
+% % 各ピーク対に番号を表示
+% for i = 1:PairNum
+
+%     % Low-frequency RF peak の番号
+%     text( ...
+%         CorrespondingTimeAbs1(i), ...
+%         CorrespondingOptFrequency1(i)/1e12, ...
+%         [' L', num2str(i)], ...
+%         'FontSize', 14, ...
+%         'FontName', 'Times New Roman', ...
+%         'VerticalAlignment', 'bottom', ...
+%         'HorizontalAlignment', 'left');
+
+%     % High-frequency RF peak の番号
+%     text( ...
+%         CorrespondingTimeAbs2(i), ...
+%         CorrespondingOptFrequency2(i)/1e12, ...
+%         [' H', num2str(i)], ...
+%         'FontSize', 14, ...
+%         'FontName', 'Times New Roman', ...
+%         'VerticalAlignment', 'top', ...
+%         'HorizontalAlignment', 'left');
+% end
+
+% fontname("Times New Roman")
+% hold off
+% % グラフの保存 (emf形式)
+% if Judge == 1 || Judge == 2
+%     saveas(gcf, fullfile(EmfFolder, [Name, '_a.emf']), 'emf');
+% end
 
 
 %% 隣り合ったピーク間隔から光周波数シフト量を自動で算出
@@ -1689,4 +2006,3 @@ if Judge == 1 || Judge == 2
 end
 
 toc;
-
