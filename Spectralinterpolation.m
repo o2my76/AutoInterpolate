@@ -294,6 +294,41 @@ if Judge == 1 || Judge == 2
     fclose(fid);                                                                  % ファイルを閉じる
 end
 
+%% 光周波数の瞬時シフト速度比の時間積分による非線形シフトを考慮したRF周波数軸の再構成
+% 配列を列ベクトルに変換
+IntegrationTime = MeasurementTimeStart(:);    % 測定範囲内の時間軸を列ベクトルに変換
+FittedSweepRateRatio = SweepRateRatioFit(:);    % 多項式近似したデータの瞬時速度比を列ベクトルに変換
+
+% 瞬時シフト速度比から光周波数のシフト速度を再構成 [Hz/s]
+ReconstructedSweepRate = LinearSweepRate .* FittedSweepRateRatio;    % 瞬時シフト速度比から光周波数のシフト速度を再構成 [Hz/s]
+
+% 瞬時シフト速度を時間積分し、各時刻の光周波数シフト量を算出 [Hz]
+IntegratedOptFrequencyShift = cumtrapz(IntegrationTime, ReconstructedSweepRate);    % 瞬時シフト速度を時間積分し、各時刻の光周波数シフト量を算出 [Hz]
+% 積分開始点を0に設定
+IntegratedOptFrequencyShift = IntegratedOptFrequencyShift - IntegratedOptFrequencyShift(1);    % 積分開始点を0に設定
+
+% 近似曲線の開始点
+SweepStartFrequency = MeasurementPolyfitOptFrequency(1);    % 近似曲線の開始点の光周波数を取得
+
+% 瞬時シフト速度比の時間積分によって再構成した光周波数軸の算出 [Hz]
+IntegratedOptFrequencyAxis = SweepStartFrequency + IntegratedOptFrequencyShift;    % 瞬時シフト速度比の時間積分によって再構成した光周波数軸の算出 [Hz]
+
+%% 時間積分で再構成した光周波数軸と近似曲線の比較
+PolynomialOptFrequencyAxis = MeasurementPolyfitOptFrequency(:);    % 近似曲線の光周波数軸を取得
+
+IntegrationDifference = IntegratedOptFrequencyAxis - PolynomialOptFrequencyAxis;    % 時間積分で再構成した光周波数軸と近似曲線の差分を算出
+disp('Difference between Integrated and Polynomial Optical Frequency Axis [GHz]'); disp(IntegrationDifference/1e9);    % 時間積分で再構成した光周波数軸と近似曲線の差分を表示
+
+figure
+plot(MeasurementTimeStart, PolynomialOptFrequencyAxis/1e12, '.b', 'MarkerSize', 20);
+hold on
+plot(MeasurementTimeStart, IntegratedOptFrequencyAxis/1e12, '.r', 'MarkerSize', 15);
+xlabel('Time [s]')                                                                 % x軸ラベル
+ylabel('Optical Frequency [THz]')                                                   % y軸ラベル
+legend('Polynomial Trendline', 'Integrated Sweep Rate Ratio', 'Location', 'best');  % 凡例
+fontsize(20,"points")                                                              % フォントサイズの設定
+fontname("Times New Roman")                                                        % フォント名の設定
+hold off
 
 %% Alazarで取得したBinファイルの読み込み
 % 定数を事前に計算 (Binファイルを読み込むにあたって)
@@ -502,6 +537,11 @@ if Judge == 1 || Judge == 2
     saveas(gcf, fullfile(EmfFolder, [Name, '_3.2.1 Smoothed RF Absorption.emf']), 'emf');
 end
 
+%% 非線形な光周波数シフトを考慮したRF周波数軸の再構成
+% 積分時間軸を0から1に正規化
+NormalizedIntegrationTime = IntegrationTime(:) / IntegrationTime(end);    % 積分時間軸を0から1に正規化
+NormalizedIntegratedOptFrequencyShift = IntegratedOptFrequencyShift(:) / IntegratedOptFrequencyShift(end);    % 時間積分した光周波数シフト量を0から1に正規化
+
 %% RF吸収線のピーク位置検出・表示
 % 3.2.2 RF吸収線のピーク位置の検出
 RFminPeakDistance = 0.05e6;                                                % 検出するピーク間隔の設定 (あえてここでの間隔を短くし、その後不要なピーク成分を除去)
@@ -513,7 +553,7 @@ RFPeakAbsorption = -RFPeakAbsorption;                                      % 反
 % 不要なピーク成分を除去 (ベースライン部分のノイズ箇所をピークとして検出してしまっているため)
 idx = RFPeakAbsorption < RFPeakJudge;                                        % 不要なピーク成分を除去 (設定した値未満のみをピークと判断し、インデックスを取得)
 RFPeakLocation = RFPeakLocation(idx);                                      % 除去後のピーク位置(x軸)に「RFPeakLocation」を上書き
-RFPeakAbsorption = RFPeakAbsorption(idx);                                  % 除去後のピーク値(y軸)に「PEPeakAbsorption」を上書き
+RFPeakAbsorption = RFPeakAbsorption(idx);                                  % 除去後のピーク値(y軸)に「RFPeakAbsorption」を上書き
 
 plot(RFPeakLocation, RFPeakAbsorption, 'bv', 'MarkerFaceColor', 'r');      % 最終的に検出した吸収線ピークを谷(黄色)でプロット
 
@@ -596,287 +636,6 @@ std_PeakDiff = std(PeakDiff2);
 
 disp('S.D. RF Peak Interval [MHz]');
 disp(std_PeakDiff / 1e6);
-
-% %% RF吸収ピーク位置を波長計の光周波数掃引位置へ対応付け
-
-% % RFコム数
-% n = 35;
-
-% % RFコム中心周波数を作成
-% RF_Center = zeros(n, 1);
-
-% for i = 1:n
-%     RF_Center(i) = AOM + RFRep * (i - 18);
-% end
-
-% % 隣接ピーク対の数
-% PairNum = size(AdjacentPeakLocations, 1);
-
-% % 結果保存用配列
-% NearestRFCenter1 = zeros(PairNum, 1);
-% NearestRFCenter2 = zeros(PairNum, 1);
-
-% RFOffset1 = zeros(PairNum, 1);
-% RFOffset2 = zeros(PairNum, 1);
-
-% NormalizedSweepPosition1 = zeros(PairNum, 1);
-% NormalizedSweepPosition2 = zeros(PairNum, 1);
-
-% CorrespondingOptFrequency1 = zeros(PairNum, 1);
-% CorrespondingOptFrequency2 = zeros(PairNum, 1);
-
-% CorrespondingTime1 = zeros(PairNum, 1);
-% CorrespondingTime2 = zeros(PairNum, 1);
-
-% % 計測時間中に対応する多項式近似上の掃引開始・終了光周波数
-% SweepStartFrequency = PolyOptFrequencyAtMeasurement(1);
-% SweepEndFrequency = PolyOptFrequencyAtMeasurement(end);
-
-% for i = 1:PairNum
-
-%     %% 低周波側RF吸収ピーク
-
-%     % 最も近いRFコム中心周波数
-%     [~, CenterIndex1] = min(abs( ...
-%         RF_Center - AdjacentPeakLocation1(i)));
-
-%     NearestRFCenter1(i) = RF_Center(CenterIndex1);
-
-%     % RFコム中心からの符号付きズレ
-%     RFOffset1(i) = ...
-%         AdjacentPeakLocation1(i) - NearestRFCenter1(i);
-
-%     % 光周波数掃引内の規格化位置
-%     NormalizedSweepPosition1(i) = ...
-%         RFOffset1(i) / RFDiff + 0.5;
-
-%     %% 高周波側RF吸収ピーク
-
-%     % 最も近いRFコム中心周波数
-%     [~, CenterIndex2] = min(abs( ...
-%         RF_Center - AdjacentPeakLocation2(i)));
-
-%     NearestRFCenter2(i) = RF_Center(CenterIndex2);
-
-%     % RFコム中心からの符号付きズレ
-%     RFOffset2(i) = ...
-%         AdjacentPeakLocation2(i) - NearestRFCenter2(i);
-
-%     % 光周波数掃引内の規格化位置
-%     NormalizedSweepPosition2(i) = ...
-%         RFOffset2(i) / RFDiff + 0.5;
-% end
-
-% % 数値誤差などで0～1を外れた値を制限
-% NormalizedSweepPosition1 = max( ...
-%     0, min(1, NormalizedSweepPosition1));
-
-% NormalizedSweepPosition2 = max( ...
-%     0, min(1, NormalizedSweepPosition2));
-
-% % 規格化位置を波長計の光周波数位置に変換
-% CorrespondingOptFrequency1 = ...
-%     SweepStartFrequency ...
-%     + NormalizedSweepPosition1 ...
-%     .* (SweepEndFrequency - SweepStartFrequency);
-
-% CorrespondingOptFrequency2 = ...
-%     SweepStartFrequency ...
-%     + NormalizedSweepPosition2 ...
-%     .* (SweepEndFrequency - SweepStartFrequency);
-
-% % 波長計の多項式近似波形から対応時刻を取得
-% % 多項式近似値と時刻を単調化して対応時刻を取得
-% [PolyfitOptFrequency_sorted, sortIdx] = sort(PolyfitOptFrequency);
-% WavelengthTime_sorted = WavelengthTime(sortIdx);
-
-% [PolyfitOptFrequency_unique, uniqueIdx] = unique(PolyfitOptFrequency_sorted, 'stable');
-% WavelengthTime_unique = WavelengthTime_sorted(uniqueIdx);
-
-% CorrespondingTime1 = interp1( ...
-%     PolyfitOptFrequency_unique, ...
-%     WavelengthTime_unique, ...
-%     CorrespondingOptFrequency1, ...
-%     'linear', ...
-%     NaN);
-
-% CorrespondingTime2 = interp1( ...
-%     PolyfitOptFrequency_unique, ...
-%     WavelengthTime_unique, ...
-%     CorrespondingOptFrequency2, ...
-%     'linear', ...
-%     NaN);
-
-%     % 計測時間中に入っている対応点だけを有効にする
-% ValidPair = ...
-%     CorrespondingTime1 >= MeasurementTime(1) & ...
-%     CorrespondingTime1 <= MeasurementTime(end) & ...
-%     CorrespondingTime2 >= MeasurementTime(1) & ...
-%     CorrespondingTime2 <= MeasurementTime(end) & ...
-%     ~isnan(CorrespondingTime1) & ...
-%     ~isnan(CorrespondingTime2);
-
-% CorrespondingTime1 = CorrespondingTime1(ValidPair);
-% CorrespondingTime2 = CorrespondingTime2(ValidPair);
-
-% CorrespondingOptFrequency1 = CorrespondingOptFrequency1(ValidPair);
-% CorrespondingOptFrequency2 = CorrespondingOptFrequency2(ValidPair);
-
-% AdjacentPeakLocation1 = AdjacentPeakLocation1(ValidPair);
-% AdjacentPeakLocation2 = AdjacentPeakLocation2(ValidPair);
-
-% PairNum = length(CorrespondingTime1);
-
-%     PeakSweepPositionTable = table( ...
-%     AdjacentPeakLocation1 / 1e6, ...
-%     NearestRFCenter1 / 1e6, ...
-%     RFOffset1 / 1e6, ...
-%     NormalizedSweepPosition1, ...
-%     CorrespondingOptFrequency1 / 1e12, ...
-%     CorrespondingTime1, ...
-%     AdjacentPeakLocation2 / 1e6, ...
-%     NearestRFCenter2 / 1e6, ...
-%     RFOffset2 / 1e6, ...
-%     NormalizedSweepPosition2, ...
-%     CorrespondingOptFrequency2 / 1e12, ...
-%     CorrespondingTime2, ...
-%     'VariableNames', { ...
-%         'LowPeak_MHz', ...
-%         'LowRFCenter_MHz', ...
-%         'LowRFOffset_MHz', ...
-%         'LowSweepPosition', ...
-%         'LowOptFrequency_THz', ...
-%         'LowTime_s', ...
-%         'HighPeak_MHz', ...
-%         'HighRFCenter_MHz', ...
-%         'HighRFOffset_MHz', ...
-%         'HighSweepPosition', ...
-%         'HighOptFrequency_THz', ...
-%         'HighTime_s'});
-
-% disp(PeakSweepPositionTable);
-
-% CorrespondingTimeStart = min( ...
-%     CorrespondingTime1, CorrespondingTime2);
-
-% CorrespondingTimeEnd = max( ...
-%     CorrespondingTime1, CorrespondingTime2);
-
-% CorrespondingTimeInterval = ...
-%     CorrespondingTimeEnd - CorrespondingTimeStart;
-
-% disp('Corresponding Wavelengthmeter Time Range [s]');
-% disp([CorrespondingTimeStart, CorrespondingTimeEnd]);
-
-% disp('Corresponding Time Interval [s]');
-% disp(CorrespondingTimeInterval);
-
-% % 各RF吸収ピーク対に対応する速度比の区間平均
-% PairVelocityRatio = zeros(PairNum, 1);
-
-% for i = 1:PairNum
-
-%     % 対応する時間区間
-%     TimeRangeIdx = ...
-%         (MeasurementTime >= CorrespondingTimeStart(i)) & ...
-%         (MeasurementTime <= CorrespondingTimeEnd(i));
-
-%     if nnz(TimeRangeIdx) >= 2
-
-%         PairVelocityRatio(i) = trapz( ...
-%             MeasurementTime(TimeRangeIdx), ...
-%             R(TimeRangeIdx)) ...
-%             / CorrespondingTimeInterval(i);
-
-%     else
-%         PairVelocityRatio(i) = NaN;
-
-%         warning( ...
-%             'ピーク対%dに対応する波長計データ点が不足しています。', ...
-%             i);
-%     end
-% end
-
-% disp('Mean Sweep Rate Ratio for Each Peak Pair');
-% disp(PairVelocityRatio);
-
-
-% % CorrespondingTime1, CorrespondingTime2 はすでに絶対時刻 [s]
-% CorrespondingTimeAbs1 = CorrespondingTime1;
-% CorrespondingTimeAbs2 = CorrespondingTime2;
-
-% figure
-
-% % 計測時間中の波長計データ
-% plot(MeasurementTime, MeasurementOptFrequency/1e12, 'or', ...
-%     'MarkerSize', 6, ...
-%     'MarkerFaceColor', 'r');
-
-% hold on
-
-% % 半周期全体の多項式近似
-% plot(WavelengthTime, PolyfitOptFrequency/1e12, 'b', ...
-%     'LineWidth', 2);
-
-% % 計測時間中の始点・終点を結ぶ線分
-% plot(MeasurementTime, LinearOptFrequency_Fit/1e12, '--g', ...
-%     'LineWidth', 2);
-
-%     % 対応する吸収ピーク位置を波長計波形上に表示
-% plot(CorrespondingTime1, CorrespondingOptFrequency1/1e12, 'ks', ...
-%     'MarkerSize', 10, ...
-%     'MarkerFaceColor', 'y', ...
-%     'LineWidth', 1.5);
-
-% plot(CorrespondingTime2, CorrespondingOptFrequency2/1e12, 'kd', ...
-%     'MarkerSize', 10, ...
-%     'MarkerFaceColor', 'c', ...
-%     'LineWidth', 1.5);
-    
-% xlabel('Time [s]')
-% ylabel('Optical Frequency [THz]')
-
-% legend( ...
-%     'Wavelengthmeter data', ...
-%     'Polynomial Fitting', ...
-%     'Linear Line', ...
-%     'Low-frequency RF Peak Position', ...
-%     'High-frequency RF Peak Position', ...
-%     'Location', 'best')
-
-% fontsize(20,"points")
-
-% % 各ピーク対に番号を表示
-% for i = 1:PairNum
-
-%     % Low-frequency RF peak の番号
-%     text( ...
-%         CorrespondingTimeAbs1(i), ...
-%         CorrespondingOptFrequency1(i)/1e12, ...
-%         [' L', num2str(i)], ...
-%         'FontSize', 14, ...
-%         'FontName', 'Times New Roman', ...
-%         'VerticalAlignment', 'bottom', ...
-%         'HorizontalAlignment', 'left');
-
-%     % High-frequency RF peak の番号
-%     text( ...
-%         CorrespondingTimeAbs2(i), ...
-%         CorrespondingOptFrequency2(i)/1e12, ...
-%         [' H', num2str(i)], ...
-%         'FontSize', 14, ...
-%         'FontName', 'Times New Roman', ...
-%         'VerticalAlignment', 'top', ...
-%         'HorizontalAlignment', 'left');
-% end
-
-% fontname("Times New Roman")
-% hold off
-% % グラフの保存 (emf形式)
-% if Judge == 1 || Judge == 2
-%     saveas(gcf, fullfile(EmfFolder, [Name, '_a.emf']), 'emf');
-% end
-
 
 %% 隣り合ったピーク間隔から光周波数シフト量を自動で算出
 % 4.1 設計した光周波数シフト量から隣り合った吸収線ピーク間隔の算出 (推定値)
