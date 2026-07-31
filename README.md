@@ -26,7 +26,7 @@ MathWorks社が提供するMATLABを用いて, データ処理からグラフ表
 
 ### プログラムのダウンロード
 MATLABプログラムは以下からリポジトリ全体をzip形式でダウンロードしてください. <br>
-[Download Zip（最新版）](https://github.com/o2my76/AutoInterpolate/archive/refs/heads/main.zip) **（最終更新日：2026年 6月 3日）**
+[Download Zip（最新版）](https://github.com/o2my76/AutoInterpolate/archive/refs/heads/main.zip) **（最終更新日：2026年 7月 30日）**
 
 動作環境：MATLAB R2025b 以降
 
